@@ -1,48 +1,70 @@
-from pathlib import Path
+import os
 import pyedflib
-import xlrd
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
-# Basically gonna loop through each PSG, specify metadata true for all excerpts in the PSG, then loop through each annotation within a PSG
-# xls file provides metadata, while the edfs provide signal data
-# All signals will be appropriately bandpassed
-# This is just cassette data
+from sklearn.preprocessing import OneHotEncoder
 
-database_path = Path('sleep-edf-database-expanded-1.0.0')
+time_norm = lambda time: (time.hour + time.minute/60)/24
+time_cos = lambda time: np.cos(2*np.pi*time_norm(time))
+time_sin = lambda time: np.sin(2*np.pi*time_norm(time))
 
-cassette_subjects = xlrd.open_workbook(database_path / 'SC-subjects.xls').sheet_by_index(0)
+# Delta: <3.5 Hz
+# Theta: 4-7.5 Hz
+# Alpha: 8-13 Hz
+# Beta: 14-30 Hz
+# Gamma >30 Hz
 
-### Old code, don't remove as I need some of this stuff
+### Cassette Data
+
+# Get subject data
+cassette_subject_data_path = os.path.join('sleep-edf-database-expanded-1.0.0', 'SC-subjects.xls')
+cassette_data = pd.read_excel(cassette_subject_data_path)
+
+## Preprocess columns
+cassette_data = cassette_data.rename(columns={'k': 'subject', 'sex (F=1)': 'sex', 'LightsOff': 'lights_off'}) # rename columns to be machine readable
+cassette_data['sex'] = cassette_data['sex'] - 1
+
+# Normalize time
+cassette_data['lights_off_cos'] = cassette_data['lights_off'].apply(time_cos) # convert datetimes into floats
+cassette_data['lights_off_sin'] = cassette_data['lights_off'].apply(time_sin)
+del cassette_data['lights_off']
+
+# Get technician data from hypnogram files
+cassette_path = os.path.join('sleep-edf-database-expanded-1.0.0', 'sleep-cassette')
+cassette_hypnograms = [s for s in os.listdir(cassette_path) if 'Hypnogram' in s]
+cassette_hypnograms.sort(key=lambda s: int(s[3:6]))
+cassette_technicians = [s[7] for s in cassette_hypnograms]
+
+# Encode technicians
+technician_encoder = OneHotEncoder()
+encoded_technicians = technician_encoder.fit_transform([[technician] for technician in cassette_technicians])
+encoded_technicians = pd.DataFrame.sparse.from_spmatrix(encoded_technicians, columns=technician_encoder.get_feature_names_out(['technician']))
+
+cassette_data = pd.concat([cassette_data, encoded_technicians], axis=1)
+
+# Add EEG signal data
+
 '''
-sort_edfs = lambda filenames: sorted(filenames, key=lambda s: int(s[3:5]))
-
-## Cassette files
-os.chdir(os.path.join('sleep-edf-database-expanded-1.0.0', 'sleep-cassette'))
-cassette_files = [f for f in os.listdir()]
-
-# Separate PSGs and hypnograms, nights 1 and 2
-cassette_psgs_1 = sort_edfs([s for s in cassette_files if 'PSG' in s and s[5] == '1'])
-cassette_psgs_2 = sort_edfs([s for s in cassette_files if 'PSG' in s and s[5] == '2'])
-cassette_hypnograms_1 = sort_edfs([s for s in cassette_files if 'Hypnogram' in s and s[5] == '1'])
-cassette_hypnograms_2 = sort_edfs([s for s in cassette_files if 'Hypnogram' in s and s[5] == '2'])
-
-print(len(cassette_psgs_1))
-print(len(cassette_psgs_2))
-
 file = cassette_hypnograms_1[0]
 x = pyedflib.highlevel.read_edf_header(file)
 x = x['annotations']
 
 x = pyedflib.EdfReader(file)
 x = x.getSignalHeaders()
-
-for dic in x:
-    for key, value in dic.items():
-        print(f'{key}: {value}')
-        print()
 '''
+
+# Add hypnogram data
+#
+# Delta: <3.5 Hz
+# Theta: 4-7.5 Hz
+# Alpha: 8-13 Hz
+# Beta: 14-30 Hz
+# Gamma >30 Hz
+
+# Add indicator for cassette data
 
 ### Compute real fourier transform
 # from scipy.fft import rfft, rfftfreq
