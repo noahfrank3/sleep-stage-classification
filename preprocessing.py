@@ -32,19 +32,6 @@ cassette_data['lights_off_cos'] = cassette_data['lights_off'].apply(time_cos) # 
 cassette_data['lights_off_sin'] = cassette_data['lights_off'].apply(time_sin)
 del cassette_data['lights_off']
 
-# Get technician data from hypnogram files
-cassette_path = os.path.join('sleep-edf-database-expanded-1.0.0', 'sleep-cassette')
-cassette_hypnograms = [s for s in os.listdir(cassette_path) if 'Hypnogram' in s]
-cassette_hypnograms.sort(key=lambda s: int(s[3:6]))
-cassette_technicians = [s[7] for s in cassette_hypnograms]
-
-# Encode technicians
-technician_encoder = OneHotEncoder()
-encoded_technicians = technician_encoder.fit_transform([[technician] for technician in cassette_technicians])
-encoded_technicians = pd.DataFrame.sparse.from_spmatrix(encoded_technicians, columns=technician_encoder.get_feature_names_out(['technician']))
-
-cassette_data = pd.concat([cassette_data, encoded_technicians], axis=1)
-
 # Add EEG signal data
 
 '''
