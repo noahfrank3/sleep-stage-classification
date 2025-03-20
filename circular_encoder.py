@@ -1,5 +1,4 @@
 import numpy as np
-from datetime import datetime, time
 from sklearn.base import BaseEstimator, TransformerMixin
 
 class CircularEncoder(BaseEstimator, TransformerMixin):
