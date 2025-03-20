@@ -23,17 +23,16 @@ time_sin = lambda time: np.sin(2*np.pi*time_norm(time))
 cassette_subject_data_path = os.path.join('sleep-edf-database-expanded-1.0.0', 'SC-subjects.xls')
 cassette_data = pd.read_excel(cassette_subject_data_path)
 
-## Preprocess columns
+# Preprocess columns
 cassette_data = cassette_data.rename(columns={'k': 'subject', 'sex (F=1)': 'sex', 'LightsOff': 'lights_off'}) # rename columns to be machine readable
 cassette_data['sex'] = cassette_data['sex'] - 1
 
-# Normalize time
+# Circularize time
 time_encoder = CircularEncoder()
 
 cassette_data['lights_off'] = cassette_data['lights_off'].apply(lambda t: (t.hour + t.minute/60)/24)
 cassette_data['lights_off_cos'], cassette_data['lights_off_sin'] = time_encoder.transform(cassette_data['lights_off'])
 del cassette_data['lights_off']
-print(cassette_data)
 
 # Add EEG signal data
 
