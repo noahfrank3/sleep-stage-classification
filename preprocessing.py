@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import OneHotEncoder
+from circular_encoder import CircularEncoder
 
 time_norm = lambda time: (time.hour + time.minute/60)/24
 time_cos = lambda time: np.cos(2*np.pi*time_norm(time))
@@ -28,9 +28,12 @@ cassette_data = cassette_data.rename(columns={'k': 'subject', 'sex (F=1)': 'sex'
 cassette_data['sex'] = cassette_data['sex'] - 1
 
 # Normalize time
-cassette_data['lights_off_cos'] = cassette_data['lights_off'].apply(time_cos) # convert datetimes into floats
-cassette_data['lights_off_sin'] = cassette_data['lights_off'].apply(time_sin)
+time_encoder = CircularEncoder()
+
+cassette_data['lights_off'] = cassette_data['lights_off'].apply(lambda t: (t.hour + t.minute/60)/24)
+cassette_data['lights_off_cos'], cassette_data['lights_off_sin'] = time_encoder.transform(cassette_data['lights_off'])
 del cassette_data['lights_off']
+print(cassette_data)
 
 # Add EEG signal data
 
