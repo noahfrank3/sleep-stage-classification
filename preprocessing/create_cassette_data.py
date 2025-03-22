@@ -12,20 +12,25 @@ from collections import deque
 from utils import CircularEncoder, print_status
 
 def create_cassette_data():
-    database_path = Path('sleep-edf-database-expanded-1.0.0')
+    # Create path labels
+    database_path = Path('..', 'sleep-edf-database-expanded-1.0.0')
+    cassette_path = database_path / 'sleep-cassette'
 
+    # Sampling frequency
     sample_freq = 100 # Hz
 
     global_min_freq = 0
     global_max_freq = sample_freq/2
 
-    ### Cassette Data
-    cassette_path = database_path / 'sleep-cassette'
-
     # Get subject data
     cassette_data = pd.read_excel(database_path / 'SC-subjects.xls')
     cassette_data = cassette_data.rename(columns={'k': 'subject', 'sex (F=1)': 'sex', 'LightsOff': 'lights_off'})
-    cassette_data['sex'] = cassette_data['sex'] - 1
+    
+    # Make sex labels readable
+    cassette_data['sex'] = cassette_data['sex'].astype(str)
+
+    cassette_data.loc[cassette_data['sex'] == '0', 'sex'] = 'M'
+    cassette_data.loc[cassette_data['sex'] == '1', 'sex'] = 'F'
 
     # Circularize time
     time_encoder = CircularEncoder()
