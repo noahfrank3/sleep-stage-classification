@@ -1,8 +1,11 @@
 import os
+import sys
 import re
 import threading
 import pyedflib
 import pandas as pd
+
+sys.path.append('..')
 
 from pathlib import Path
 from collections import deque
