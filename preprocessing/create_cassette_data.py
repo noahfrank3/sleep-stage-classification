@@ -9,18 +9,16 @@ sys.path.append('..')
 
 from pathlib import Path
 from collections import deque
-from utils import CircularEncoder, print_status
+from utils import SAMPLE_FREQ, CircularEncoder, print_status
 
 def create_cassette_data():
     # Create path labels
     database_path = Path('..', 'sleep-edf-database-expanded-1.0.0')
     cassette_path = database_path / 'sleep-cassette'
 
-    # Sampling frequency
-    sample_freq = 100 # Hz
-
+    # Least conservative bounds for minimum and maximum frequency
     global_min_freq = 0
-    global_max_freq = sample_freq/2
+    global_max_freq = SAMPLE_FREQ/2
 
     # Get subject data
     cassette_data = pd.read_excel(database_path / 'SC-subjects.xls')
@@ -99,7 +97,7 @@ def create_cassette_data():
             end_index = start_index + int(annotation[1])
             
             # Check for short-duration sleep stages
-            duration_freq = sample_freq/int(annotation[1])
+            duration_freq = SAMPLE_FREQ/int(annotation[1])
             min_freq = max(min_freq, duration_freq)
             
             # Sleep stage label

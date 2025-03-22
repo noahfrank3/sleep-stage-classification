@@ -5,6 +5,8 @@ import numpy as np
 from scipy.fft import rfft, rfftfreq
 from sklearn.base import BaseEstimator, TransformerMixin
 
+SAMPLE_FREQ = 100 # Hz, sample frequency of all data
+
 # Compute real DFT of a signal
 def ft(signal, sample_freq):
     freqs = rfftfreq(len(signal), 1/sample_freq)
