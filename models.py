@@ -8,43 +8,102 @@
 # Beta: 14-30 Hz
 # Gamma 30-100 Hz
 
-from sklearn.preprocessing import StandardScaler as sc
+from sklearn.preprocessing import StandardScaler as sc, MinMaxScaler as mc, FunctionTransformer
 from sklearn.decomposition import KernelPCA
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import mean_squared_error
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import TruncatedSVD
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import Lasso
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn import svm
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+import xgboost as xgb
+import optuna
 
+'''This module assumes that the data is already divided into training, validation and testing data. The
+module can be divided into 4 steps:
+1. Bandpass filtering
+2. Data regularization 
+3. Dimensionality reduction
+4. Machine learning model
 
-#PCA/SVD Model selection scoring method, cite https://stackoverflow.com/questions/53556359/selecting-kernel-and-hyperparameters-for-kernel-pca-reduction
-def my_scorer(estimator, X, y=None):
-    X_reduced = estimator.transform(X)
-    X_preimage = estimator.inverse_transform(X_reduced)
-    return -1 * mean_squared_error(X, X_preimage)
+Each of the possible combinations of the strategies are then addressed in individual sklearn pipelines.'''
 
-#PCA Model selection
-def model_select_pca(x):
-    sc_X = sc()
-    x[x.columns] = sc_X.fit_transform(x[x.columns])
-    param_grid = [{"gamma": np.linspace(0.01, 1, 5),"kernel": ["rbf", "sigmoid", "linear", "poly"]}]
-    kpca=KernelPCA(fit_inverse_transform=True, n_jobs=-1) 
-    grid_search = GridSearchCV(kpca, param_grid, cv=5, scoring=my_scorer)
-    grid_search.fit(x)
-    print("Best Hyperparameters:", grid_search.best_params_)
-    print("Best Score:", grid_search.best_score_)
-    return x
+#Bandpass Filtering
 
-#SVD
-def SVD(x):
-    param_grid = [{"n_components": np.linspace(1, 10, 10),}]
-    trun_svd =  TruncatedSVD()
-    grid_search = GridSearchCV(trun_svd, param_grid, scoring=my_scorer)
-    x_new = grid_search.fit(x)
+#Regularization
+
+#Dimensionality Reduction Strategies
+
+#Kernalized PCA
+def KPCA(x, n_componenets, kernel, gamma):
+    kpca = KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
+    x_new = kpca.fit_transform(x)
     return x_new
 
+#SVD
+def SVD(x, n_components):
+    trun_svd = TruncatedSVD(n_components = n_components)
+    x_new = trun_svd.fit_transform(x)
+    return x_new
+
+'''#LASSO (needs y?)
+def Lasso_dim_red(x,y,alpha):
+    lasso_dr = Lasso(alpha = alpha)
+    lasso_dr.fit(x = x, y = y)
+    return x,y'''
+
 #LDA
+def LDA(x):
+    lda_solver = LinearDiscriminantAnalysis()
+    lda_solver.fit_transform(x)
+    return x
+    
+#Classifiers
 
-#LASSO
+#Kernalized SVM
+def kernal_SVM(x_train,y_train,x_test, kernal):
+    k_SVM = svm.SVC(kernal = kernal)
+    k_SVM.fit(x_train, y_train)
+    y_pred = k_SVM.predict(x_test)
+    return y_pred
 
-#Random Forest
+#kNN
+def kNN(x_train, y_train, x_test, n_neighbors):
+    knn_classifier = KNeighborsClassifier(n_neighbors=n_neighbors)
+    knn_classifier.fit(x_train, y_train)
+    y_pred = knn_classifier.predict(x_test)
+    return y_pred
+
+#DT
+def DT(x_train, y_train, x_test, criterion):
+    dec_tree = DecisionTreeClassifier(criterion = criterion)
+    dec_tree.fit(x_train,y_train)
+    y_pred = dec_tree.predict(x_test)
+    return y_pred
+    
+#Random forest
+def RF(x_train, y_train, x_test, n_estimators, criterion):
+    rf_claf = RandomForestClassifier(n_estimators = n_estimators, criterion = criterion)
+    rf_claf.fit(x_train,y_train)
+    y_pred = rf_claf.predict(x_test)
+    return y_pred
+  
+#Random Forest with xgboost
+def xg_boost(x_train, y_train, x_test, booster, max_depth):
+    xgb_claf = xgb.train(booster = booster, max_depth = max_depth,d_train = [(x_train,y_train)])
+    y_pred = xgb_claf.predict(x_test)
+    return y_pred
+
+#Neural network
+def NN(x_train, y_train, x_test, solver, alpha, hidden_layer_sizes):
+    nn_claf = MLPClassifier(solver = solver, alpha = alpha, hidden_layer_sizes = hidden_layer_sizes)
+    nn_claf.fit(x_train,y_train)
+    y_pred = nn_claf.predict(x_test)
+    return y_pred
+
+#Pipelines
