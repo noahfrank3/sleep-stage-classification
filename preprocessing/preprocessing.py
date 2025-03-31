@@ -14,15 +14,39 @@ sys.path.remove('..')
 
 database_path = Path('..', 'sleep-edf-database-expanded-1.0.0')
 
-# Subject data preprocessing steps:
-# Get subject data
-# Get PSG and hypnogram filenames
-# Get technicans (depends on hypnogram filenames)
-def preprocess_subject_data(study_name, edf_dir_name, subject_filename):
+get_edf_dir_name = lambda study_name: 'sleep-' + study_name
+get_subject_filename = lambda study_name: 'S' + study_name[0].upper() \
++ '-subjects.xls'
+
+def preprocess_cassette_subject_data(data):
+    # Rename columns
+    data = data.rename(columns={
+        'k': 'subject',
+        'sex (F=1)': 'sex',
+        'LightsOff': 'lights_off'
+    })
+    
+    # Make sex labels readable
+    data['sex'] = data['sex'].astype(str)
+
+    data.loc[data['sex'] == '0', 'sex'] = 'M'
+    data.loc[data['sex'] == '1', 'sex'] = 'F'
+
+    return data
+
+def preprocess_telemetry_subject_data(data):
+    return data
+
+def preprocess_subject_data(study_name):
     print(f'Preprocessing {study_name} subject data...', '\r')
 
     # Get subject data
-    data = get_subject_data(study_name, subject_filename)
+    data = pd.read_excel(database_path / get_subject_filename(study_name))
+    match study_name:
+        case 'cassette':
+            data = preprocess_cassette_subject_data(data)
+        case 'telemetry':
+            data = preprocess_telemetry_subject_data(data)
     
     # Circularize time
     time_encoder = CircularEncoder()
@@ -32,6 +56,9 @@ def preprocess_subject_data(study_name, edf_dir_name, subject_filename):
     data['lights_off_cos'], data['lights_off_sin'] = \
                 time_encoder.transform(cassette_data['lights_off'])
     del data['lights_off']
+
+    # Get edf directory name
+    edf_dir_name = get_edf_dir_name(study_name)
 
     # Get PSG filenames
     psg_filenames = [s for s in os.listdir(
@@ -48,21 +75,13 @@ def preprocess_subject_data(study_name, edf_dir_name, subject_filename):
     # Get technicians
     data['technician'] = [s[7] for s in data['hypnogram_filename']]
 
-    print(f'{study_name.capatalize()} subject data processed successfully')
+    print(f'{study_name.capitalize()} subject data processed successfully')
     return data
 
 # Signal data preprocessing steps:
 # Iterate through each whole night
 # --- Unpack filenames
 def get_signal_data(data, study_name, edf_dir_name):
-    # Begin status printing thread
-    status_deque = deque(maxlen=1)
-    status_end_var = 0
-
-    status_thread = threading.Thread(target=print_status, args=(
-        status_deque, status_end_var))
-    status_thread.start()
-
     # Add EEG signal data
     temp_data = []
     n_nights = len(data)
@@ -128,11 +147,10 @@ def get_signal_data(data, study_name, edf_dir_name):
     # Add indicator for cassette/telemetry study
     cassette_data['study'] = 0
 
-
-
 # Create cassette and telemetry data
-cassette_data = create_cassette_data()
-print(cassette_data)
+if __name__ == '__main__':
+    cassette_data = preprocess_subject_data('cassette')
+    print(cassette_data)
 
 '''
 telemetry_data = create_telemetry_data()
