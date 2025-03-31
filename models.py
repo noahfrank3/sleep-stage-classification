@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler as sc, MinMaxScaler as mc, Func
 from sklearn.decomposition import KernelPCA
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Lasso
@@ -33,11 +34,84 @@ module can be divided into 4 steps:
 
 Each of the possible combinations of the strategies are then addressed in individual sklearn pipelines.'''
 
-#Bandpass Filtering
+### Preliminaries
+# Parameters
+k = 5 # number of folds for k-fold CV
 
-#Regularization
+# Split data intro training and testing sets
+X, y = load_data()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
+                                                    stratify=y)
 
-#Dimensionality Reduction Strategies
+# Generate folds for k-fold CV
+cv = StratifiedKFold(shuffle=True)
+n_con = len(X_train) // k # safe lower upper bound for n of a fold
+
+### List of dimensionality reduction techniques and classifiers
+# Maps dimensionality reduction technique to its wrapper
+dim_reduction_mappings = {
+        None: None,
+        'PCA', PCA_wrapper,
+        'SVD', SVD_wrapper
+}
+
+# Maps classifier to its wrapper
+clf_mappings = {
+        'SVM': SVM_wrapper,
+        'random_forest': random_forest_wrapper,
+        'kNN': kNN_wrapper
+}
+
+### Implementation of dimensionality reduction techniques and classifiers
+def kNN_wrapper(trial):
+    n_neighbors = trial.suggest_int('n_neighbors', 1, n_con, log=True)
+    return KNeighborsClassifier(n_neighbors=n_neighbors)
+
+### Define objective/pipeline and run optimization
+def objective(trial):
+    # Bandpass filter
+    alpha_divs = trial.suggest_int('alpha_divs', 1, 2)
+    beta_divs = trial.suggest_int('beta_divs', 1, 4)
+    gamma_divs = trial.suggest_int('gamma_divs', 1, 5)
+    bp_filter = BPFilter(alpha_divs, beta_divs, gamma_divs)
+
+    # Normalization
+    scalar = StandardScalar()
+
+    # Dimensionality reduction
+    dim_reduction = trial.suggest_categorical(
+            'dim_reduction',
+            list(dim_reduction_mappings.keys()))
+
+    if dim_reduction is None:
+        dim_reduction = 'passthrough'
+    else:
+        dim_reduction = dim_reduction_mappings[dim_reduction](trial)
+
+    # Classification
+    clf = trial.suggest_categorical('clf', list(clf_mappings.keys()))
+    clf = clf_mappings[clf](trial)
+
+    # Build pipeline
+    pipeline = Pipeline([
+        ('bp_filter', bp_filter),
+        ('scalar', scalar),
+        ('dim_reduction', dim_reduction),
+        ('clf', clf)
+    ])
+
+    # K-fold cross-validation
+    return 1 - cross_val_score(pipeline, X_train, y_train, cv=cv,
+                               scoring='accuracy').mean()
+
+# Run optimization
+if __name__ == '__main__':
+    study = optuna.create_study()
+    study.optimize(objective, n_trials=50)
+    
+    # Implement optimization results
+
+### OLD CODE TO BE REFACTORED
 
 #Kernalized PCA
 def KPCA(x, n_componenets, kernel, gamma):
@@ -70,13 +144,6 @@ def kernal_SVM(x_train,y_train,x_test, kernal):
     k_SVM = svm.SVC(kernal = kernal)
     k_SVM.fit(x_train, y_train)
     y_pred = k_SVM.predict(x_test)
-    return y_pred
-
-#kNN
-def kNN(x_train, y_train, x_test, n_neighbors):
-    knn_classifier = KNeighborsClassifier(n_neighbors=n_neighbors)
-    knn_classifier.fit(x_train, y_train)
-    y_pred = knn_classifier.predict(x_test)
     return y_pred
 
 #DT
