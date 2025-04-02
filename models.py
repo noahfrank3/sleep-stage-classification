@@ -10,6 +10,7 @@
 
 from sklearn.preprocessing import StandardScaler as sc, MinMaxScaler as mc, FunctionTransformer
 from sklearn.decomposition import KernelPCA
+from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
@@ -64,7 +65,30 @@ clf_mappings = {
 }
 
 ### Implementation of dimensionality reduction techniques and classifiers
-#DT
+
+def PCA_wrapper(trial):
+    n_componenets = trial.suggest_int()
+    gamma = trial.suggest_int()
+    return PCA(n_components= n_componenets, gamma = gamma, n_jobs=-1) 
+
+def KPCA_wrapper(trial):
+    n_componenets = trial.suggest_int()
+    kernel = trial.suggest_categorical()
+    gamma = trial.suggest_int()
+    return KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
+
+def LDA_wrapper(trial):
+    solver = trial.suggest_categorical()
+    return LinearDiscriminantAnalysis(solver = solver)
+
+def SVD_wrapper(trial):
+    n_components = trial.suggest_int()
+    return TruncatedSVD(n_components = n_components)
+
+def Lasso_wrapper(trial):
+    alpha = trial.suggest_int()
+    return Lasso(alpha = alpha)
+
 def DT_wrapper(trial):
     criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
     return DecisionTreeClassifier(criterion = criterion)
@@ -138,28 +162,3 @@ if __name__ == '__main__':
     
     # Implement optimization results
 
-### OLD CODE TO BE REFACTORED
-
-#Kernalized PCA
-def KPCA(x, n_componenets, kernel, gamma):
-    kpca = KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
-    x_new = kpca.fit_transform(x)
-    return x_new
-
-#SVD
-def SVD(x, n_components):
-    trun_svd = TruncatedSVD(n_components = n_components)
-    x_new = trun_svd.fit_transform(x)
-    return x_new
-
-'''#LASSO (needs y?)
-def Lasso_dim_red(x,y,alpha):
-    lasso_dr = Lasso(alpha = alpha)
-    lasso_dr.fit(x = x, y = y)
-    return x,y'''
-
-#LDA
-def LDA(x):
-    lda_solver = LinearDiscriminantAnalysis()
-    lda_solver.fit_transform(x)
-    return x
