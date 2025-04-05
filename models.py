@@ -10,10 +10,12 @@
 
 from sklearn.preprocessing import StandardScaler as sc, MinMaxScaler as mc, FunctionTransformer
 from sklearn.decomposition import KernelPCA
+from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Lasso
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -63,9 +65,58 @@ clf_mappings = {
 }
 
 ### Implementation of dimensionality reduction techniques and classifiers
+
+def PCA_wrapper(trial):
+    n_componenets = trial.suggest_int()
+    gamma = trial.suggest_int()
+    return PCA(n_components= n_componenets, gamma = gamma, n_jobs=-1) 
+
+def KPCA_wrapper(trial):
+    n_componenets = trial.suggest_int()
+    kernel = trial.suggest_categorical()
+    gamma = trial.suggest_int()
+    return KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
+
+def LDA_wrapper(trial):
+    solver = trial.suggest_categorical()
+    return LinearDiscriminantAnalysis(solver = solver)
+
+def SVD_wrapper(trial):
+    n_components = trial.suggest_int()
+    return TruncatedSVD(n_components = n_components)
+
+def Lasso_wrapper(trial):
+    alpha = trial.suggest_int()
+    return Lasso(alpha = alpha)
+
+def DT_wrapper(trial):
+    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
+    return DecisionTreeClassifier(criterion = criterion)
+
+def random_forest_wrapper(trial):
+    n_estimators = trial.suggest_int('n_estimators',1, 50)
+    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
+    return RandomForestClassifier(n_estimators=n_estimators,criterion=criterion)
+
 def kNN_wrapper(trial):
     n_neighbors = trial.suggest_int('n_neighbors', 1, n_con, log=True)
     return KNeighborsClassifier(n_neighbors=n_neighbors)
+
+def kernal_SVM_wrapper(trial):
+    kernal = trial.suggest_categorical('kernal', ['linear', 'poly', 'rbf', 'sigmoid'])
+    return svm.SVC(kernal=kernal)
+
+def xg_boost_wrapper(trial):
+    booster = trial.suggest_categorical('booster', ['gbtree', 'gblinear', 'dart'])
+    max_depth = trial.suggest_int('max_depth', 1, 100)
+    return xgb.XGBClassifier(booster = booster, max_depth=max_depth)
+
+def NN(trial):
+    solver = trial.suggest_categorical(solver,'lbfgs', 'sgd', 'adam')
+    alpha = trial.suggest_float('alpha',.001,.1)
+    hidden_layer_sizes = trial.suggest_int('hidden_layer_sizes',10,500)
+    return MLPClassifier(solver = solver, alpha = alpha, hidden_layer_sizes = hidden_layer_sizes)
+
 
 ### Define objective/pipeline and run optimization
 def objective(trial):
@@ -76,7 +127,7 @@ def objective(trial):
     bp_filter = BPFilter(alpha_divs, beta_divs, gamma_divs)
 
     # Normalization
-    scalar = StandardScalar()
+    scalar = StandardScaler()
 
     # Dimensionality reduction
     dim_reduction = trial.suggest_categorical(
@@ -107,70 +158,7 @@ def objective(trial):
 # Run optimization
 if __name__ == '__main__':
     study = optuna.create_study()
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=5)
     
     # Implement optimization results
 
-### OLD CODE TO BE REFACTORED
-
-#Kernalized PCA
-def KPCA(x, n_componenets, kernel, gamma):
-    kpca = KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
-    x_new = kpca.fit_transform(x)
-    return x_new
-
-#SVD
-def SVD(x, n_components):
-    trun_svd = TruncatedSVD(n_components = n_components)
-    x_new = trun_svd.fit_transform(x)
-    return x_new
-
-'''#LASSO (needs y?)
-def Lasso_dim_red(x,y,alpha):
-    lasso_dr = Lasso(alpha = alpha)
-    lasso_dr.fit(x = x, y = y)
-    return x,y'''
-
-#LDA
-def LDA(x):
-    lda_solver = LinearDiscriminantAnalysis()
-    lda_solver.fit_transform(x)
-    return x
-    
-#Classifiers
-
-#Kernalized SVM
-def kernal_SVM(x_train,y_train,x_test, kernal):
-    k_SVM = svm.SVC(kernal = kernal)
-    k_SVM.fit(x_train, y_train)
-    y_pred = k_SVM.predict(x_test)
-    return y_pred
-
-#DT
-def DT(x_train, y_train, x_test, criterion):
-    dec_tree = DecisionTreeClassifier(criterion = criterion)
-    dec_tree.fit(x_train,y_train)
-    y_pred = dec_tree.predict(x_test)
-    return y_pred
-    
-#Random forest
-def RF(x_train, y_train, x_test, n_estimators, criterion):
-    rf_claf = RandomForestClassifier(n_estimators = n_estimators, criterion = criterion)
-    rf_claf.fit(x_train,y_train)
-    y_pred = rf_claf.predict(x_test)
-    return y_pred
-  
-#Random Forest with xgboost
-def xg_boost(x_train, y_train, x_test, booster, max_depth):
-    xgb_claf = xgb.train(booster = booster, max_depth = max_depth,d_train = [(x_train,y_train)])
-    y_pred = xgb_claf.predict(x_test)
-    return y_pred
-
-#Neural network
-def NN(x_train, y_train, x_test, solver, alpha, hidden_layer_sizes):
-    nn_claf = MLPClassifier(solver = solver, alpha = alpha, hidden_layer_sizes = hidden_layer_sizes)
-    nn_claf.fit(x_train,y_train)
-    y_pred = nn_claf.predict(x_test)
-    return y_pred
-
-#Pipelines
