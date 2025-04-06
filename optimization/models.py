@@ -9,7 +9,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
 
 def PCA_wrapper(trial):
     n_components = trial.suggest_int('n_components',1,m, log = True)
@@ -31,6 +32,13 @@ def SVD_wrapper(trial):
 def Lasso_wrapper(trial):
     alpha = trial.suggest_int('alpha',.001,1000, log = True)
     return Lasso(alpha = alpha)
+
+def LR_wrapper(trial):
+    penalty = trial.suggest_categorical('penalty',[None,'l2','l1','elasticnet'])
+    return LogisticRegression(penalty=penalty)
+
+def NB_wrapper(trial):
+    return GaussianNB()
 
 def DT_wrapper(trial):
     criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
@@ -72,6 +80,8 @@ dim_reduction_mappings = {
 
 # Maps classifier to its wrapper
 clf_mappings = {
+        'LR': LR_wrapper,
+        'NB': NB_wrapper,
         'DT': DT_wrapper,
         'random_forest': random_forest_wrapper,
         'kNN': kNN_wrapper,
