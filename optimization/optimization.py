@@ -5,28 +5,15 @@
 # Beta: 14-30 Hz
 # Gamma 30-100 Hz
 
-from sklearn.preprocessing import StandardScaler as sc, MinMaxScaler as mc, FunctionTransformer
-from sklearn.decomposition import KernelPCA
-from sklearn.decomposition import PCA
 import numpy as np
-import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, cross_val_score
-from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import Lasso
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn import svm
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neural_network import MLPClassifier
-import xgboost as xgb
 import optuna
 import h5py
 from pathlib import Path
 from models import *
-from bp_filter import BPFilter
+from feature_extractor import FeatureExtractor
 
 '''This module assumes that the data is already divided into training, validation and testing data. The
 module can be divided into 4 steps:
@@ -55,7 +42,7 @@ clf_mappings = {
 
 # Split data into training and testing sets
 def train_test_split():
-    with h5py.File(Path('data') / 'data.h5', 'r') as hdf:
+    with h5py.File(Path('..') / 'data' / 'data.h5', 'r') as hdf:
         X = []
         y = []
 
@@ -76,14 +63,13 @@ def train_test_split():
 
     return X_train, y_train, X_test, y_test
 
-
 ### Define objective/pipeline and run optimization
 def objective(trial):
-    # Bandpass filter
+    # Feature extraction and bandpass filter
     alpha_divs = trial.suggest_int('alpha_divs', 1, 2)
     beta_divs = trial.suggest_int('beta_divs', 1, 4)
     gamma_divs = trial.suggest_int('gamma_divs', 1, 5)
-    bp_filter = BPFilter(alpha_divs, beta_divs, gamma_divs)
+    feature_extractor = FeatureExtractor(alpha_divs, beta_divs, gamma_divs)
 
     # Normalization
     scalar = StandardScaler()
@@ -104,7 +90,7 @@ def objective(trial):
 
     # Build pipeline
     pipeline = Pipeline([
-        ('bp_filter', bp_filter),
+        ('feature_extractor', feature_extractor),
         ('scalar', scalar),
         ('dim_reduction', dim_reduction),
         ('clf', clf)
