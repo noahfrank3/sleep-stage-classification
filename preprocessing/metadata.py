@@ -1,11 +1,11 @@
-import pandas as pd
 from pathlib import Path
-import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
 from abc import ABC, abstractmethod
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 
 class Preprocessor(ABC):
-    database_path_mappings = {
+    db_path_mappings = {
             'zip': Path('..', 'sleep-edf-database-expanded-1.0.0'),
             'wget': Path('..', 'physionet.org', 'files', 'sleep-edfx', '1.0.0')
     }
@@ -13,11 +13,9 @@ class Preprocessor(ABC):
     column_mappings = None
     sex_mappings = None
 
-    def __init__(self, download_type):
-        self.database_path = self.__class__.database_path_mappings[
-                download_type]
-        self.data_path = Path(self.database_path) / \
-        ('sleep-' + self.__class__.study_name)
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.data_path = self.db_path / ('sleep-' + self.__class__.study_name)
         self.column_mappings = self.__class__.column_mappings
         self.sex_mappings = self.__class__.sex_mappings
 
@@ -71,7 +69,7 @@ class CassettePreprocessor(Preprocessor):
     }
 
     def load_data(self):
-        self.data = pd.read_excel(self.database_path / 'SC-subjects.xls')
+        self.data = pd.read_excel(self.db_path / 'SC-subjects.xls')
 
     def reorganize_data(self):
         self.data['study'] = 'cassette'
@@ -93,7 +91,7 @@ class TelemetryPreprocessor(Preprocessor):
     }
 
     def load_data(self):
-        self.data = pd.read_excel(self.database_path / 'ST-subjects.xls',
+        self.data = pd.read_excel(self.db_path / 'ST-subjects.xls',
                                   skiprows=1)
 
     def reorganize_data(self):
@@ -155,33 +153,3 @@ class CircularEncoder(BaseEstimator, TransformerMixin):
         X = np.asarray(X)
         theta = np.arctan2(X[:, 1], X[:, 0])
         return theta*self.period/(2*np.pi)
-
-def get_metadata():
-    # Ask for download type
-    while True:
-        download_type = input("What method did you use to download the "
-                              "database? zip or wget? ")
-
-        if download_type in ['zip', 'wget']:
-            break
-        else:
-            print("You must specify either 'zip' or 'wget'")
-
-    # Create preprocessors
-    cassette_preprocessor = CassettePreprocessor(download_type)
-    telemtry_preprocessor = TelemetryPreprocessor(download_type)
-
-    # Preprocess cassette and telemtry data
-    cassette_data = cassette_preprocessor.get_data()
-    telemetry_data = telemtry_preprocessor.get_data()
-
-    # Combine cassette and telemtry data
-    metadata = pd.concat([cassette_data, telemetry_data], ignore_index=True)
-
-    # Circularize time
-    metadata = circularize_time(metadata)
-
-    # Save data to csv
-    # metadata.to_csv(Path('..') / 'data' / 'metadata.csv', index=False)
-
-    return metadata
