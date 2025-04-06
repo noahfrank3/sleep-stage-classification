@@ -1,6 +1,3 @@
-# Get EEG signal
-# signal = pyedflib.highlevel.read_edf(str(cassette_path / psg_filename))[0][0]
-#
 # Sleep waves
 # Delta: 0-3.5 Hz
 # Theta: 4-7.5 Hz
@@ -13,7 +10,7 @@ from sklearn.decomposition import KernelPCA
 from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, cross_val_score
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -26,6 +23,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
 import optuna
+import h5py
+from pathlib import Path
+from models import *
+from bp_filter import BPFilter
 
 '''This module assumes that the data is already divided into training, validation and testing data. The
 module can be divided into 4 steps:
@@ -36,25 +37,13 @@ module can be divided into 4 steps:
 
 Each of the possible combinations of the strategies are then addressed in individual sklearn pipelines.'''
 
-### Preliminaries
-# Parameters
 k = 5 # number of folds for k-fold CV
 
-# Split data intro training and testing sets
-X, y = load_data()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
-                                                    stratify=y)
-
-# Generate folds for k-fold CV
-cv = StratifiedKFold(shuffle=True)
-n_con = len(X_train) // k # safe lower upper bound for n of a fold
-
-### List of dimensionality reduction techniques and classifiers
 # Maps dimensionality reduction technique to its wrapper
 dim_reduction_mappings = {
         None: None,
-        'PCA', PCA_wrapper,
-        'SVD', SVD_wrapper
+        'PCA': PCA_wrapper,
+        'SVD': SVD_wrapper
 }
 
 # Maps classifier to its wrapper
@@ -64,58 +53,28 @@ clf_mappings = {
         'kNN': kNN_wrapper
 }
 
-### Implementation of dimensionality reduction techniques and classifiers
+# Split data into training and testing sets
+def train_test_split():
+    with h5py.File(Path('data') / 'data.h5', 'r') as hdf:
+        X = []
+        y = []
 
-def PCA_wrapper(trial):
-    n_componenets = trial.suggest_int()
-    gamma = trial.suggest_int()
-    return PCA(n_components= n_componenets, gamma = gamma, n_jobs=-1) 
+        for group in hdf.keys():
+            signals = hdf[group]
+            for signal in signals.values():
+                X.append(signal.attrs['id'])
+                y.append(signal.attrs['sleep_stage'])
 
-def KPCA_wrapper(trial):
-    n_componenets = trial.suggest_int()
-    kernel = trial.suggest_categorical()
-    gamma = trial.suggest_int()
-    return KernelPCA(n_components= n_componenets, kernel = kernel, gamma = gamma, n_jobs=-1)
+    X = np.array(X)
+    y = np.array(y)
 
-def LDA_wrapper(trial):
-    solver = trial.suggest_categorical()
-    return LinearDiscriminantAnalysis(solver = solver)
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2)
+    train_idx, test_idx = next(sss.split(X, y))
 
-def SVD_wrapper(trial):
-    n_components = trial.suggest_int()
-    return TruncatedSVD(n_components = n_components)
+    X_train, y_train = X[train_idx], y[train_idx]
+    X_test, y_test = X[test_idx], y[test_idx]
 
-def Lasso_wrapper(trial):
-    alpha = trial.suggest_int()
-    return Lasso(alpha = alpha)
-
-def DT_wrapper(trial):
-    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
-    return DecisionTreeClassifier(criterion = criterion)
-
-def random_forest_wrapper(trial):
-    n_estimators = trial.suggest_int('n_estimators',1, 50)
-    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
-    return RandomForestClassifier(n_estimators=n_estimators,criterion=criterion)
-
-def kNN_wrapper(trial):
-    n_neighbors = trial.suggest_int('n_neighbors', 1, n_con, log=True)
-    return KNeighborsClassifier(n_neighbors=n_neighbors)
-
-def kernal_SVM_wrapper(trial):
-    kernal = trial.suggest_categorical('kernal', ['linear', 'poly', 'rbf', 'sigmoid'])
-    return svm.SVC(kernal=kernal)
-
-def xg_boost_wrapper(trial):
-    booster = trial.suggest_categorical('booster', ['gbtree', 'gblinear', 'dart'])
-    max_depth = trial.suggest_int('max_depth', 1, 100)
-    return xgb.XGBClassifier(booster = booster, max_depth=max_depth)
-
-def NN(trial):
-    solver = trial.suggest_categorical(solver,'lbfgs', 'sgd', 'adam')
-    alpha = trial.suggest_float('alpha',.001,.1)
-    hidden_layer_sizes = trial.suggest_int('hidden_layer_sizes',10,500)
-    return MLPClassifier(solver = solver, alpha = alpha, hidden_layer_sizes = hidden_layer_sizes)
+    return X_train, y_train, X_test, y_test
 
 
 ### Define objective/pipeline and run optimization
@@ -157,6 +116,14 @@ def objective(trial):
 
 # Run optimization
 if __name__ == '__main__':
+    # Split data into training and testing sets
+    X_train, y_train, X_test, y_test = train_test_split()
+    
+    # Generate folds for k-fold CV
+    cv = StratifiedKFold(shuffle=True)
+    n_con = len(X_train) // k # safe lower upper bound for n of a fold
+
+    # Create optuna study
     study = optuna.create_study()
     study.optimize(objective, n_trials=5)
     

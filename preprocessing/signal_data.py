@@ -63,3 +63,6 @@ def save_signals(group, signal, annotations):
         # Store signal and sleep stage
         dataset = group.create_dataset(str(idx), data=signal[start_idx:end_idx], compression='gzip')
         dataset.attrs['sleep_stage'] = sleep_stage
+        
+        # Create signal id
+        dataset.attrs['id'] = group.name + 'x' + str(idx)
