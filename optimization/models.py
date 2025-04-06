@@ -10,6 +10,20 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
 
+# Maps dimensionality reduction technique to its wrapper
+dim_reduction_mappings = {
+        None: None,
+        'PCA': PCA_wrapper,
+        'SVD': SVD_wrapper
+}
+
+# Maps classifier to its wrapper
+clf_mappings = {
+        'SVM': SVM_wrapper,
+        'random_forest': random_forest_wrapper,
+        'kNN': kNN_wrapper
+}
+
 def PCA_wrapper(trial):
     n_componenets = trial.suggest_int()
     gamma = trial.suggest_int()

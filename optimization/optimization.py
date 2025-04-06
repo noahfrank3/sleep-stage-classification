@@ -26,20 +26,6 @@ Each of the possible combinations of the strategies are then addressed in indivi
 
 k = 5 # number of folds for k-fold CV
 
-# Maps dimensionality reduction technique to its wrapper
-dim_reduction_mappings = {
-        None: None,
-        'PCA': PCA_wrapper,
-        'SVD': SVD_wrapper
-}
-
-# Maps classifier to its wrapper
-clf_mappings = {
-        'SVM': SVM_wrapper,
-        'random_forest': random_forest_wrapper,
-        'kNN': kNN_wrapper
-}
-
 # Split data into training and testing sets
 def train_test_split():
     with h5py.File(Path('..') / 'data' / 'data.h5', 'r') as hdf:
