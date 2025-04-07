@@ -106,7 +106,16 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     # Load optuna study and run optimization
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
+    storage = optuna.storages.RDBStorage(
+        url=db_url,
+        engine_kwargs={
+            'pool_size': 10,
+            'max_overflow': 6,
+            'pool_timeout': 30,
+            'pool_recycle': 1800
+        }
+    )
+    study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
     study.optimize(
             lambda trial: objective(
                 trial,
