@@ -82,7 +82,7 @@ def objective(trial, cv, n, X_trainval, y_trainval):
     # Calculate objectives
     cv_error =  1 - cross_val_score(pipeline, X_train, y_train, cv=cv,
                                scoring='accuracy').mean()
-    cv_space = asizeof.asizeof(pipeline)
+    cv_space = asizeof.asizeof(pipeline)*2**(-20) # MB
     return cv_error, cv_space
 
 # Run optimization
