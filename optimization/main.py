@@ -15,7 +15,7 @@ from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
 
 k = 5 # number of folds for k-fold CV
-n_workers = 1 # number of CPUs to use (set to cpu_count() for HPC)
+n_workers = cpu_count() # number of CPUs to use (set to cpu_count() for HPC)
 
 def load_data():
     with h5py.File(Path('..') / 'data' / 'data.h5', 'r') as hdf:
