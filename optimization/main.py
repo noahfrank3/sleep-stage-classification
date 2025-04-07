@@ -1,5 +1,8 @@
 from pathlib import Path
 from multiprocessing import cpu_count
+import os
+
+from dotenv import load_dotenv
 
 from optimization import run_optimization
 
@@ -14,5 +17,10 @@ if __name__ == '__main__':
     n_trial_workers = int(f_trial_workers*n_workers)
     n_internal_workers = n_workers - n_trial_workers
 
+    reset_study = False
+
+    load_dotenv()
+    db_url = os.getenv('DB_URL')
+
     # Run optimization
-    run_optimization(data_path, k, n_trials n_trial_workers, n_internal_workers)
+    run_optimization(data_path, k, n_trials n_trial_workers, n_internal_workers, reset_study, db_url)

@@ -89,7 +89,7 @@ def objective(trial, cv, n, X_train, y_train, n_internal_workers):
     return cv_error, cv_space
 
 # Run optimization process
-def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers):
+def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, reset_study, db_url):
     # Load data
     X, y = load_data(data_path)
 
@@ -103,6 +103,29 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
     n = (k - 1)*(len(X_train) // k)
 
     # Create optuna study and run optimization
+    if reset_study:    
+        optuna.delete_study(
+            study_name='sleep_stage_classification', 
+            storage=db_url
+        )
+
     optuna.logging.set_verbosity(optuna.logging.INFO)
-    study = optuna.create_study(sampler=NSGAIISampler(), directions=['minimize', 'minimize'])
-    study.optimize(lambda trial: objective(trial, cv, n, X_train, y_train, n_internal_workers), n_trials=n_trials, n_jobs=n_trial_workers)
+    study = optuna.create_study(
+            study_name='sleep_stage_classification',
+            storage=db_url,
+            load_if_exists=True,
+            sampler=NSGAIISampler(),
+            directions=['minimize', 'minimize']
+    )
+    study.optimize(
+            lambda trial: objective(
+                trial,
+                cv, 
+                n, 
+                X_train,
+                y_train,
+                n_internal_workers
+            ),
+            n_trials=n_trials,
+            n_jobs=n_trial_workers
+    )
