@@ -86,6 +86,8 @@ def objective(trial, cv, n, X_train, y_train, n_internal_workers):
     cv_error =  1 - cross_val_score(pipeline, X_train, y_train, cv=cv,
                                scoring='accuracy').mean()
     cv_space = asizeof.asizeof(pipeline)*2**(-20) # MB
+    print(f"Error: {cv_error:.2f}")
+    print(f"Size: {int(cv_space)}")
     return cv_error, cv_space
 
 # Run optimization process
