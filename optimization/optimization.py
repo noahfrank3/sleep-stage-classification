@@ -112,7 +112,8 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
             'pool_size': 10,
             'max_overflow': 6,
             'pool_timeout': 30,
-            'pool_recycle': 1800
+            'pool_recycle': 1800,
+            'pool_pre_ping': True
         }
     )
     study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
