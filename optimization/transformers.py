@@ -14,6 +14,7 @@ class FeatureExtractor(BaseEstimator, TransformerMixin):
         beta_divs = trial.suggest_int('beta_divs', 1, 4)
         gamma_divs = trial.suggest_int('gamma_divs', 1, 5)
 
+        self.trial = trial
         self.n_divs_map = {
                 'theta': 1,
                 'alpha': alpha_divs,
