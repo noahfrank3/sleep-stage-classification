@@ -1,9 +1,11 @@
+from multiprocessing import Pool
+from pathlib import Path
+
 import h5py
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from multiprocessing import Pool
-from pathlib import Path
+
 from signal_features import get_signal_features
 
 class FeatureExtractor(BaseEstimator, TransformerMixin):

@@ -1,15 +1,13 @@
-from sklearn.decomposition import KernelPCA
-from sklearn.decomposition import TruncatedSVD
-from sklearn.linear_model import Lasso
+from sklearn.decomposition import KernelPCA, TruncatedSVD
+from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
-import xgboost as xgb
-from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
+import xgboost as xgb
 
 class DimReductionWrapper():
     def __init__(self, trial, n, m):

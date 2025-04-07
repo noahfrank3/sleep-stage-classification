@@ -1,16 +1,18 @@
+from pathlib import Path
+from multiprocessing import cpu_count
+
 import numpy as np
-from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, cross_val_score
+import h5py
+from memory_profiler import memory_usage
+import optuna
+from optuna.samplers import NSGAIISampler
+from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
-import optuna
-import h5py
-from pathlib import Path
-from models import DimReductionWrapper, CLFWrapper
-from multiprocessing import cpu_count
+
 from transformers import FeatureExtractor, CircularEncoder
-from memory_profiler import memory_usage
-from optuna.samplers import NSGAIISampler
+from models import DimReductionWrapper, CLFWrapper
 
 k = 5 # number of folds for k-fold CV
 n_workers = 1 # number of CPUs to use (set to cpu_count() for HPC)

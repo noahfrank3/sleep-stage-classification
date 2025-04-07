@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from scipy.signal import butter, lfilter
 
 fs = 100
