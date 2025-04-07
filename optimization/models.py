@@ -44,12 +44,12 @@ class DimReductionWrapper():
         if kernel == 'poly':
             degree = self.trial.suggest_int('degree_PCA', 2, 10)
         else:
-            degree = None
+            degree = 3
 
         if kernel in ['poly', 'sigmoid']:
             coef0 = self.trial.suggest_float('coef0_PCA', -2, 2)
         else:
-            coef0 = None
+            coef0 = 1
 
         return KernelPCA(n_components=n_components, kernel=kernel, gamma=gamma, degree=degree, coef0=coef0, n_jobs=-1)
 
@@ -118,19 +118,19 @@ class CLFWrapper():
         kernel = self.trial.suggest_categorical('kernal_SVM', ['linear', 'poly', 'rbf', 'sigmoid'])
 
         if kernel == 'cosine':
-            gamma = None
+            gamma = 'scale'
         else:
             gamma = self.trial.suggest_float('gamma_SVM', 0.001, 1000, log=True)
 
         if kernel == 'poly':
             degree = self.trial.suggest_int('degree_SVM', 2, 10)
         else:
-            degree = None
+            degree = 3
 
         if kernel in ['poly', 'sigmoid']:
             coef0 = self.trial.suggest_float('coef0_SVM', -2, 2)
         else:
-            coef0 = None
+            coef0 = 0
 
         return svm.SVC(C=C, kernel=kernel, gamma=gamma, degree=degree, coef0=coef0)
 
