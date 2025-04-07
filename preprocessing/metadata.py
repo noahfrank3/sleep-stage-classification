@@ -29,6 +29,13 @@ class Preprocessor(ABC):
     def reorganize_data(self):
         pass
 
+    def convert_nights(self):
+        self.data['night'] = self.data['night'].astype(int)
+        self.data['night'] = self.data['night'] - 1
+
+    def convert_ages(self):
+        self.data['age'] = self.data['age'].astype(int)
+
     def fix_sex_labels(self):
         self.data['sex'] = self.data['sex'].astype(str)
 
@@ -54,6 +61,8 @@ class Preprocessor(ABC):
         self.load_data()
         self.rename_columns()
         self.reorganize_data()
+        self.convert_nights()
+        self.convert_ages()
         self.fix_sex_labels()
         self.convert_datetimes()
         self.reorder_columns()

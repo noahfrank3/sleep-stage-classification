@@ -1,8 +1,7 @@
 from sklearn.decomposition import KernelPCA
-from sklearn.decomposition import PCA
 from sklearn.decomposition import TruncatedSVD
 from sklearn.linear_model import Lasso
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -12,80 +11,139 @@ import xgboost as xgb
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 
-def PCA_wrapper(trial):
-    n_components = trial.suggest_int('n_components',1,m, log = True)
-    return PCA(n_components= n_components, n_jobs=-1) 
+class DimReductionWrapper():
+    def __init__(self, trial, n, m):
+        self.trial = trial
+        self.max_size = min(n, m)
 
-def KPCA_wrapper(trial):
-    n_components = trial.suggest_int('n_components',1,m, log = True)
-    kernel = trial.suggest_categorical('kernal',['linear', 'poly', 'rbf', 'sigmoid', 'cosine'])
-    return KernelPCA(n_components= n_components, kernel = kernel, n_jobs=-1)
+    def get_dim_reduction(self):
+        dim_reduction_mappings = {
+            None: None,
+            'KPCA': self.PCA_wrapper,
+            'LDA': self.LDA_wrapper,
+            'SVD': self.SVD_wrapper,
+            'LASSO': self.LDA_wrapper
+        }
 
-def LDA_wrapper(trial):
-    solver = trial.suggest_categorical('solver', ['svd', 'lsqr', 'eigen'])
-    return LinearDiscriminantAnalysis(solver = solver)
+        dim_reduction = self.trial.suggest_categorical('dim_reduction', list(dim_reduction_mappings.keys()))
 
-def SVD_wrapper(trial):
-    n_components = trial.suggest_int('n_components',1,m, log = True)
-    return TruncatedSVD(n_components = n_components)
+        if dim_reduction is None:
+            dim_reduction = 'passthrough'
+        else:
+            dim_reduction = dim_reduction_mappings[dim_reduction]()
 
-def Lasso_wrapper(trial):
-    alpha = trial.suggest_int('alpha',.001,1000, log = True)
-    return Lasso(alpha = alpha)
+        return dim_reduction
 
-def LR_wrapper(trial):
-    penalty = trial.suggest_categorical('penalty',[None,'l2','l1','elasticnet'])
-    return LogisticRegression(penalty=penalty)
+    def PCA_wrapper(self):
+        n_components = self.trial.suggest_int('n_components_PCA', 1, self.max_size, log=True)
+        kernel = self.trial.suggest_categorical('kernal_PCA', ['linear', 'poly', 'rbf', 'sigmoid', 'cosine'])
 
-def NB_wrapper(trial):
-    return GaussianNB()
+        if kernel in ['linear', 'cosine']:
+            gamma = None
+        else:
+            gamma = self.trial.suggest_float('gamma_PCA', 0.001, 1000, log=True)
 
-def DT_wrapper(trial):
-    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
-    return DecisionTreeClassifier(criterion = criterion)
+        if kernel == 'poly':
+            degree = self.trial.suggest_int('degree_PCA', 2, 10)
+        else:
+            degree = None
 
-def random_forest_wrapper(trial):
-    n_estimators = trial.suggest_int('n_estimators',1, 1000, log = True)
-    criterion = trial.suggest_categorical('criterion', ['gini', 'entropy', 'log_loss'])
-    return RandomForestClassifier(n_estimators=n_estimators,criterion=criterion)
+        if kernel in ['poly', 'sigmoid']:
+            coef0 = self.trial.suggest_float('coef0_PCA', -2, 2)
+        else:
+            coef0 = None
 
-def kNN_wrapper(trial):
-    n_neighbors = trial.suggest_int('n_neighbors', 1, n_con, log = True)
-    return KNeighborsClassifier(n_neighbors=n_neighbors)
+        return KernelPCA(n_components=n_components, kernel=kernel, gamma=gamma, degree=degree, coef0=coef0, n_jobs=-1)
 
-def kernal_SVM_wrapper(trial):
-    kernal = trial.suggest_categorical('kernal', ['linear', 'poly', 'rbf', 'sigmoid'])
-    return svm.SVC(kernal=kernal)
+    def LDA_wrapper(self):
+        n_components = self.trial.suggest_int('n_components_LDA', 1, self.max_size, log=True)
+        return LinearDiscriminantAnalysis(n_components=n_components)
 
-def xg_boost_wrapper(trial):
-    booster = trial.suggest_categorical('booster', ['gbtree', 'gblinear', 'dart'])
-    max_depth = trial.suggest_int('max_depth',.001,1000,log = True)
-    return xgb.XGBClassifier(booster = booster, max_depth=max_depth)
+    def SVD_wrapper(self):
+        n_components = self.trial.suggest_int('n_components_SVD', 1, self.max_size, log=True)
+        return TruncatedSVD(n_components=n_components)
 
-def NN_wrapper(trial):
-    solver = trial.suggest_categorical(solver,'lbfgs', 'sgd', 'adam')
-    alpha = trial.suggest_float('alpha',.001,1000,log = True)
-    hidden_layer_sizes = trial.suggest_int('hidden_layer_sizes',.001,1000,log = True)
-    return MLPClassifier(solver = solver, alpha = alpha, hidden_layer_sizes = hidden_layer_sizes)
+    def Lasso_wrapper(self):
+        alpha = self.trial.suggest_float('alpha_Lasso', 0.001 , 1000, log=True)
+        return Lasso(alpha=alpha)
 
-# Maps dimensionality reduction technique to its wrapper
-dim_reduction_mappings = {
-        None: None,
-        'PCA': PCA_wrapper,
-        'KPCA': KPCA_wrapper,
-        'LDA': LDA_wrapper,
-        'SVD': SVD_wrapper,
-        'LASSO': LDA_wrapper
-}
+class CLFWrapper():
+    def __init__(self, trial, n, m):
+        self.trial = trial
+        self.max_size = min(n, m)
 
-# Maps classifier to its wrapper
-clf_mappings = {
-        'LR': LR_wrapper,
-        'NB': NB_wrapper,
-        'DT': DT_wrapper,
-        'random_forest': random_forest_wrapper,
-        'kNN': kNN_wrapper,
-        'SVM': kernal_SVM_wrapper,
-        'XGBoost': xg_boost_wrapper,
-        'NN': NN_wrapper
-}
+    def get_clf(self):
+        clf_mappings = {
+            'QDA': self.QDA_wrapper,
+            'LR': self.LR_wrapper,
+            'NB': self.NB_wrapper,
+            'DT': self.DT_wrapper,
+            'RF': self.RF_wrapper,
+            'kNN': self.kNN_wrapper,
+            'SVM': self.SVM_wrapper,
+            'XGB': self.XGB_wrapper,
+            'NN': self.NN_wrapper
+        }
+
+        clf = self.trial.suggest_categorical('clf', list(clf_mappings.keys()))
+        return clf_mappings[clf]()
+
+    def QDA_wrapper(self):
+        return QuadraticDiscriminantAnalysis()
+
+    def LR_wrapper(self):
+        penalty = self.trial.suggest_categorical('penalty_LR', [None, 'l2', 'l1', 'elasticnet'])
+        C = self.trial.suggest_float('C_LR', 0.001, 1000, log=True)
+        return LogisticRegression(penalty=penalty, C=C)
+
+    def NB_wrapper(self):
+        return GaussianNB()
+
+    def DT_wrapper(self):
+        max_depth = self.trial.suggest_int('max_depth_DT', 1, self.max_size, log=True)
+        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_DT', 1, self.max_size, log=True)
+        return DecisionTreeClassifier(max_depth=max_depth, max_leaf_nodes=max_leaf_nodes)
+
+    def RF_wrapper(self):
+        n_estimators = self.trial.suggest_int('n_estimators_RF', 1, 1000, log=True)
+        max_depth = self.trial.suggest_int('max_depth_RF', 1, self.max_size, log=True)
+        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_RF', 1, self.max_size, log=True)
+        return RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, max_leaf_nodes=max_leaf_nodes)
+
+    def kNN_wrapper(self):
+        n_neighbors = self.trial.suggest_int('n_neighbors_kNN', 1, self.max_size, log=True)
+        weights = self.trial.suggest_categorical('weights_kNN', ['uniform', 'distance'])
+        return KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights)
+
+    def SVM_wrapper(self):
+        C = self.trial.suggest_float('C', 0.001, 1000, log=True)
+        kernel = self.trial.suggest_categorical('kernal_SVM', ['linear', 'poly', 'rbf', 'sigmoid'])
+
+        if kernel == 'cosine':
+            gamma = None
+        else:
+            gamma = self.trial.suggest_float('gamma_SVM', 0.001, 1000, log=True)
+
+        if kernel == 'poly':
+            degree = self.trial.suggest_int('degree_SVM', 2, 10)
+        else:
+            degree = None
+
+        if kernel in ['poly', 'sigmoid']:
+            coef0 = self.trial.suggest_float('coef0_SVM', -2, 2)
+        else:
+            coef0 = None
+
+        return svm.SVC(C=C, kernel=kernel, gamma=gamma, degree=degree, coef0=coef0)
+
+    def XGB_wrapper(self):
+        booster = self.trial.suggest_categorical('booster_XGB', ['gbtree', 'gblinear', 'dart'])
+        max_depth = self.trial.suggest_int('max_depth_XGB', 1, 1000, log=True)
+        return xgb.XGBClassifier(booster=booster, max_depth=max_depth)
+
+    def NN_wrapper(self):
+        n_hidden_layers = self.trial.suggest_int('n_hidden_layers_NN', 1, 10)
+        hidden_layers_size = []
+        for idx in range(n_hidden_layers):
+            hidden_layers_size.append(self.trial.suggest_int(f'hidden_layer_{idx}_size_NN', 1, 250))
+        return MLPClassifier(hidden_layer_sizes=hidden_layers_size)
