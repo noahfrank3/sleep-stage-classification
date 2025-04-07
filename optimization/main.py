@@ -3,11 +3,10 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import h5py
-from memory_profiler import memory_usage
 import optuna
 from optuna.samplers import NSGAIISampler
 from pympler import asizeof
-from sklearn.model_selection import cross_val_score, StratifiedShuffleSplit, StratifiedKFold
+from sklearn.model_selection import cross_val_score, StratifiedShuffleSplit, StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
@@ -17,9 +16,13 @@ from models import DimReductionWrapper, CLFWrapper
 
 k = 5 # number of folds for k-fold CV
 n_workers = cpu_count() # number of CPUs to use (set to cpu_count() for HPC)
+n_trials = 100 # number of trials for optimization run
+data_path = Path('..') / 'data' # path of data directory
 
-def load_data():
-    with h5py.File(Path('..') / 'data' / 'data.h5', 'r') as hdf:
+# Loads X and Y from the h5 data file
+def load_data(data_path):
+    # Loop through each signal and label, adding to X and y respectively
+    with h5py.File(data_path / 'data.h5', 'r') as hdf:
         X = []
         y = []
 
@@ -38,23 +41,31 @@ def load_data():
 
     return X, y
 
-# Split data into training and testing sets
-def train_test_split(X, y):
-    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2)
-    trainval_idx, test_idx = next(sss.split(X, y))
+# Wraps train_test_split to enable persistant storage for reusing train/test split
+def train_test_split_wrapper(data_path, X, y):
+    # Check if data file exists and load indices
+    try:
+        idx = np.load(data_path / 'train_test_split_idx.npz')
+        train_idx = idx['train_idx']
+        test_idx = idx['test_idx']
+    # Create new train/test split if no data file exists
+    except FileNotFoundError:
+        train_idx, test_idx = train_test_split(np.arange(len(y)), test_size=0.2, shuffle=True, stratify=y)
+        np.savez(data_path / 'train_test_split_idx.npz', train_idx=train_idx, test_idx=test_idx)
 
-    X_trainval, y_trainval = X[trainval_idx], y[trainval_idx]
-    X_test, y_test = X[test_idx], y[test_idx]
+    # Split data into training/testing sets
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
 
-    return X_trainval, y_trainval, X_test, y_test
+    return X_train, X_test, y_train, y_test
 
-### Define objective/pipeline and run optimization
-def objective(trial, cv, n, X_trainval, y_trainval):
+# Define objective and pipeline for optimization
+def objective(trial, cv, n, X_train, y_train):
     # Feature extraction
     feature_extractor = FeatureExtractor(trial, n_workers)
     m = feature_extractor.get_m()
 
-    # Encoding
+    # Encode features
     encoder = ColumnTransformer(
         transformers=[
             ('scale', StandardScaler(), ['age']), 
@@ -85,21 +96,23 @@ def objective(trial, cv, n, X_trainval, y_trainval):
     cv_space = asizeof.asizeof(pipeline)*2**(-20) # MB
     return cv_error, cv_space
 
-# Run optimization
-def run_optimization():
+# Run optimization process
+def run_optimization(data_path):
     # Load data
-    X, y = load_data()
+    X, y = load_data(data_path)
 
-    # Extract test data
-    X_trainval, y_trainval, X_test, y_test = train_test_split(X, y)
+    # Separate training and testing data
+    X_train, X_test, y_train, y_test = train_test_split_wrapper(data_path, X, y)
     
     # Generate folds for k-fold CV
     cv = StratifiedKFold(n_splits=k, shuffle=True)
-    n = (k - 1)*(len(X_trainval) // k) # safe lower upper bound for n of a fold
 
-    # Create optuna study
+    # Define safe lower upper bound for n of a fold training set
+    n = (k - 1)*(len(X_train) // k)
+
+    # Create optuna study and run optimization
     study = optuna.create_study(sampler=NSGAIISampler(), directions=['minimize', 'minimize'])
-    study.optimize(lambda trial: objective(trial, cv, n, X_trainval, y_trainval), n_trials=5)
+    study.optimize(lambda trial: objective(trial, cv, n, X_train, y_train), n_trials=n_trials)
 
 if __name__ == '__main__':
-    run_optimization()
+    run_optimization(data_path)
