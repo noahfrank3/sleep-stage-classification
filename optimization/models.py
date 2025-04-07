@@ -92,7 +92,7 @@ class CLFWrapper():
     def LR_wrapper(self):
         penalty = self.trial.suggest_categorical('penalty_LR', [None, 'l2', 'l1', 'elasticnet'])
         C = self.trial.suggest_float('C_LR', 0.001, 1000, log=True)
-        return LogisticRegression(penalty=penalty, C=C)
+        return LogisticRegression(penalty=penalty, C=C, n_jobs=-1)
 
     def NB_wrapper(self):
         return GaussianNB()
@@ -106,12 +106,12 @@ class CLFWrapper():
         n_estimators = self.trial.suggest_int('n_estimators_RF', 1, 1000, log=True)
         max_depth = self.trial.suggest_int('max_depth_RF', 1, self.max_size, log=True)
         max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_RF', 1, self.max_size, log=True)
-        return RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, max_leaf_nodes=max_leaf_nodes)
+        return RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, max_leaf_nodes=max_leaf_nodes, n_jobs=-1)
 
     def kNN_wrapper(self):
         n_neighbors = self.trial.suggest_int('n_neighbors_kNN', 1, self.max_size, log=True)
         weights = self.trial.suggest_categorical('weights_kNN', ['uniform', 'distance'])
-        return KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights)
+        return KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, n_jobs=-1)
 
     def SVM_wrapper(self):
         C = self.trial.suggest_float('C', 0.001, 1000, log=True)
@@ -137,7 +137,7 @@ class CLFWrapper():
     def XGB_wrapper(self):
         booster = self.trial.suggest_categorical('booster_XGB', ['gbtree', 'gblinear', 'dart'])
         max_depth = self.trial.suggest_int('max_depth_XGB', 1, 1000, log=True)
-        return xgb.XGBClassifier(booster=booster, max_depth=max_depth)
+        return xgb.XGBClassifier(booster=booster, max_depth=max_depth, n_jobs=-1)
 
     def NN_wrapper(self):
         n_hidden_layers = self.trial.suggest_int('n_hidden_layers_NN', 1, 10)
