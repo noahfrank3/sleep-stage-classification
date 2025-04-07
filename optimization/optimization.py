@@ -1,7 +1,7 @@
 import numpy as np
 import h5py
 import optuna
-from optuna.samplers import NSGAIISampler
+from optuna.study import MaxTrialsCallback
 from pympler import asizeof
 from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
@@ -89,7 +89,7 @@ def objective(trial, cv, n, X_train, y_train, n_internal_workers):
     return cv_error, cv_space
 
 # Run optimization process
-def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, reset_study, db_url):
+def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, db_url):
     # Load data
     X, y = load_data(data_path)
 
@@ -102,21 +102,11 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
     # Define safe lower upper bound for n of a fold training set
     n = (k - 1)*(len(X_train) // k)
 
-    # Create optuna study and run optimization
-    if reset_study:    
-        optuna.delete_study(
-            study_name='sleep_stage_classification', 
-            storage=db_url
-        )
-
+    # Turn on optuna logger
     optuna.logging.set_verbosity(optuna.logging.INFO)
-    study = optuna.create_study(
-            study_name='sleep_stage_classification',
-            storage=db_url,
-            load_if_exists=True,
-            sampler=NSGAIISampler(),
-            directions=['minimize', 'minimize']
-    )
+
+    # Load optuna study and run optimization
+    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
     study.optimize(
             lambda trial: objective(
                 trial,
@@ -127,5 +117,6 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
                 n_internal_workers
             ),
             n_trials=n_trials,
-            n_jobs=n_trial_workers
+            n_jobs=n_trial_workers,
+            callbacks=[MaxTrialsCallback(n_trials)]
     )
