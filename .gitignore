@@ -1,6 +1,7 @@
 sleep-edf-database-expanded-1.0.0/
 physionet.org/
 data/
+!data/.gitkeep
 __pycache__/
 preprocessing/__pycache__/
 optimization/__pycache__/
