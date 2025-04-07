@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH -J sleep_stage_optimization
 #SBATCH -o out.log
-#SBATCH --partition=ice
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
