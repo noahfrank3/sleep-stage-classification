@@ -1,8 +1,7 @@
-from pathlib import Path
 from abc import ABC, abstractmethod
-import numpy as np
+from pathlib import Path
+
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
 
 class Preprocessor(ABC):
     db_path_mappings = {
@@ -18,15 +17,6 @@ class Preprocessor(ABC):
         self.data_path = self.db_path / ('sleep-' + self.__class__.study_name)
         self.column_mappings = self.__class__.column_mappings
         self.sex_mappings = self.__class__.sex_mappings
-
-    def get_data(self):
-        self.load_data()
-        self.rename_columns()
-        self.reorganize_data()
-        self.fix_sex_labels()
-        self.reorder_columns()
-        
-        return self.data
 
     @abstractmethod
     def load_data(self):
@@ -45,6 +35,10 @@ class Preprocessor(ABC):
         for key, sex in self.sex_mappings.items():
             self.data.loc[self.data['sex'] == key, 'sex'] = sex
 
+    def convert_datetimes(self):
+        self.data['lights_off'] = self.data['lights_off'].apply(
+                lambda time: (time.hour + time.minute/60)/24)
+
     def reorder_columns(self):
         del self.data['subject']
 
@@ -55,6 +49,16 @@ class Preprocessor(ABC):
             'sex',
             'lights_off'
         ]]
+
+    def get_data(self):
+        self.load_data()
+        self.rename_columns()
+        self.reorganize_data()
+        self.fix_sex_labels()
+        self.convert_datetimes()
+        self.reorder_columns()
+        
+        return self.data
 
 class CassettePreprocessor(Preprocessor):
     study_name = 'cassette'
@@ -121,35 +125,15 @@ class TelemetryPreprocessor(Preprocessor):
         self.data = self.data.sort_values(by=['subject', 'night'],
                                           ignore_index=True)
 
-def circularize_time(data) :
-    time_encoder = CircularEncoder()
-    
-    # Transform datetime to float
-    data['lights_off'] = data['lights_off'].apply(
-            lambda t: (t.hour + t.minute/60)/24)
-    
-    # Get cos and sin components
-    data['lights_off_cos'], data['lights_off_sin'] = \
-                time_encoder.transform(data['lights_off'])
-    
-    # Remove old entry
-    del data['lights_off']
+def get_metadata(db_path):
+    # Create metadata preprocessors
+    cassette_preprocessor = CassettePreprocessor(db_path)
+    telemtry_preprocessor = TelemetryPreprocessor(db_path)
 
-    return data
+    # Preprocess cassette and telemtry metadata
+    cassette_data = cassette_preprocessor.get_data()
+    telemetry_data = telemtry_preprocessor.get_data()
 
-class CircularEncoder(BaseEstimator, TransformerMixin):
-    def __init__(self, period=1):
-        self.period = period
+    # Combine cassette and telemtry metadata
+    return pd.concat([cassette_data, telemetry_data], ignore_index=True)
 
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        X = np.asarray(X)
-        theta = 2*np.pi*X/self.period
-        return np.cos(theta), np.sin(theta)
-
-    def inverse_transform(self, X):
-        X = np.asarray(X)
-        theta = np.arctan2(X[:, 1], X[:, 0])
-        return theta*self.period/(2*np.pi)

@@ -1,15 +1,11 @@
 import os
-import h5py
 from pathlib import Path
+
+import h5py
+import numpy as np
 from pyedflib.highlevel import read_edf
-
-def get_filenames(db_path, dir, key):
-    filenames = [filename for filename in os.listdir(db_path / dir) \
-            if key in filename]
-    filenames.sort(key=lambda filename: int(filename[3:6]))
-    filenames = [db_path / dir / filename for filename in filenames]
-
-    return filenames
+from scipy.signal import butter, lfilter
+from scipy.signal.windows import hamming
 
 def get_signal_filenames(db_path):
     cassette_psg_filenames = get_filenames(db_path, 'sleep-cassette', 'PSG')
@@ -26,6 +22,14 @@ def get_signal_filenames(db_path):
 
     return psg_filenames, hypnogram_filenames
 
+def get_filenames(db_path, dir, key):
+    filenames = [filename for filename in os.listdir(db_path / dir) \
+            if key in filename]
+    filenames.sort(key=lambda filename: int(filename[3:6]))
+    filenames = [db_path / dir / filename for filename in filenames]
+
+    return filenames
+
 def extract_signals(metadata, psg_filenames, hypnogram_filenames):
     with h5py.File(Path('..') / 'data' / 'data.h5', 'w') as hdf:
         for (idx, metadata_entry), psg_filename, hypnogram_filename in \
@@ -37,8 +41,8 @@ def extract_signals(metadata, psg_filenames, hypnogram_filenames):
             except OSError:
                 print("Failed to extract signal and annotations")
                 continue
-            
-            # Store signal and metadata in group
+
+            # Store signal and metadata in h5 group
             group = hdf.create_group(str(idx))
             save_signals(group, signal, annotations)
             for key, value in metadata_entry.items():
@@ -60,9 +64,30 @@ def save_signals(group, signal, annotations):
         start_idx = int(annotation[0])
         end_idx = start_idx + int(annotation[1])
 
+        # Condition signal
+        signal_snippet = signal[start_idx:end_idx]
+        signal_snippet = condition_signal(signal_snippet)
+
         # Store signal and sleep stage
-        dataset = group.create_dataset(str(idx), data=signal[start_idx:end_idx], compression='gzip')
+        dataset = group.create_dataset(str(idx), data=signal_snippet, compression='gzip')
         dataset.attrs['sleep_stage'] = sleep_stage
         
         # Create signal id
         dataset.attrs['id'] = group.name + 'x' + str(idx)
+
+def condition_signal(signal):
+    # Lowpass filter
+    b, a = butter(5, 0.999, btype='low')
+    signal = lfilter(b, a, signal)
+    
+    # Normalize signal
+    signal = 2*(signal - np.min(signal))/(np.max(signal) - np.min(signal)) - 1
+
+    # Window signal to remove edge effects
+    signal *= hamming(len(signal))
+
+    return signal
+
+def process_signals(db_path, metadata):
+    psg_filenames, hypnogram_filenames = get_signal_filenames(db_path)
+    extract_signals(metadata, psg_filenames, hypnogram_filenames)
