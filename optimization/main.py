@@ -23,4 +23,4 @@ if __name__ == '__main__':
     db_url = os.getenv('DB_URL')
 
     # Run optimization
-    run_optimization(data_path, k, n_trials n_trial_workers, n_internal_workers, reset_study, db_url)
+    run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, reset_study, db_url)
