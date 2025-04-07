@@ -43,7 +43,7 @@ def extract_signals(metadata, psg_filenames, hypnogram_filenames):
                 continue
 
             # Store signal and metadata in h5 group
-            group = hdf.create_group(str(idx))
+            group = hdf.create_group('g' + str(idx))
             save_signals(group, signal, annotations)
             for key, value in metadata_entry.items():
                 group.attrs[key] = value
@@ -69,7 +69,7 @@ def save_signals(group, signal, annotations):
         signal_snippet = condition_signal(signal_snippet)
 
         # Store signal and sleep stage
-        dataset = group.create_dataset(str(idx), data=signal_snippet, compression='gzip')
+        dataset = group.create_dataset('d' + str(idx), data=signal_snippet, compression='gzip')
         dataset.attrs['sleep_stage'] = sleep_stage
         
         # Create signal id
