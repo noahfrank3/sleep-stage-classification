@@ -6,3 +6,4 @@ __pycache__/
 preprocessing/__pycache__/
 optimization/__pycache__/
 optimization/.env
+optimization/us-east-1-bundle.pem
