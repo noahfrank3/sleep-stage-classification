@@ -8,10 +8,10 @@ from optimization import run_optimization
 from reset_db import reset_db
 
 # Parameters
-hpc_enabled = False # enable HPC
+hpc_enabled = True # enable HPC
 test_db = False # use test database
 do_reset_db = False # reset database
-reset_only = True # only reset database
+reset_only = False # only reset database
 
 k = 5 # number of folds for k-fold CV
 n_trials = 10000 # number of trials for optimization run
