@@ -48,8 +48,9 @@ global_params = {
 }
 
 # Configure logger
-logging.basicConfig()
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+if hpc_enabled:
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 # Run optimization
 if not reset_only:
