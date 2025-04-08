@@ -35,7 +35,6 @@ class FeatureExtractor(BaseEstimator, TransformerMixin):
         with h5py.File(Path('..') / 'data' / 'data.h5', 'r') as hdf:
             group_name, dataset_name = x.split('x')
 
-            group_name = 'g' + group_name
             dataset_name = 'd' + dataset_name
 
             group = hdf[group_name]
