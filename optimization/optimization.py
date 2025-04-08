@@ -7,7 +7,6 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
-from sqlalchemy import create_engine
 
 from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
@@ -151,16 +150,7 @@ def run_optimization(global_params):
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     # Load optuna study and run optimization
-    engine_kwargs = {
-        'pool_size': 5,
-        'max_overflow': 10,
-        'pool_timeout': 30,
-        'pool_recycle': 15
-    }
-
-    storage = optuna.storages.RDBStorage(url=db_url, engine_kwargs=engine_kwargs)
-
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
+    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
     study.optimize(
             lambda trial: objective(trial, global_params),
             n_trials=n_trials,
