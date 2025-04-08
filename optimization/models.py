@@ -91,8 +91,18 @@ class CLFWrapper():
 
     def LR_wrapper(self):
         penalty = self.trial.suggest_categorical('penalty_LR', [None, 'l2', 'l1', 'elasticnet'])
-        C = self.trial.suggest_float('C_LR', 0.001, 1000, log=True)
-        return LogisticRegression(penalty=penalty, C=C, n_jobs=-1)
+        
+        if penalty is None:
+            C = 1
+        else:
+            C = self.trial.suggest_float('C_LR', 0.001, 1000, log=True)
+        
+        if penalty == 'elasticnet':
+            l1_ratio = self.trial.suggest_float('l1_ratio_LR', 0, 1)
+        else:
+            l1_ratio = None
+
+        return LogisticRegression(penalty=penalty, C=C, l1_ratio=l1_ratio, n_jobs=-1)
 
     def NB_wrapper(self):
         return GaussianNB()
