@@ -8,9 +8,9 @@ from optimization import run_optimization
 from reset_db import reset_db
 
 # Parameters
-hpc_enabled = False # enable HPC
-test_db = True # use test database
-reset_db = True # reset database
+hpc_enabled = True # enable HPC
+test_db = False # use test database
+do_reset_db = False # reset database
 reset_only = False # only reset database
 
 k = 5 # number of folds for k-fold CV
@@ -33,7 +33,7 @@ else:
     load_dotenv()
     db_url = os.getenv('DB_URL')
 
-if reset_db and not hpc_enabled:
+if do_reset_db and not hpc_enabled:
     reset_db(db_url)
 
 # Save global parameters
