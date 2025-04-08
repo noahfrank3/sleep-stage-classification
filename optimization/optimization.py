@@ -150,7 +150,14 @@ def run_optimization(global_params):
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     # Load optuna study and run optimization
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
+    engine_kwargs = {
+        'pool_size': 10,
+        'max_overflow': 5,
+        'pool_timeout': 30,
+        'pool_recycle': 3600
+    }
+
+    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url, engine_kwargs=engine_kwargs)
     study.optimize(
             lambda trial: objective(trial, global_params),
             n_trials=n_trials,

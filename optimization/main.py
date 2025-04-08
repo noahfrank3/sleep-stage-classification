@@ -34,12 +34,6 @@ else:
     load_dotenv()
     db_url = os.getenv('DB_URL')
 
-    db_url = db_url +\
-            '?pool_size=10' +\
-            '&max_overflow=5' +\
-            '&pool_timeout=30' +\
-            '&pool_recycle=3600'
-
 if (do_reset_db or reset_only) and not hpc_enabled:
     reset_db(db_url)
 
