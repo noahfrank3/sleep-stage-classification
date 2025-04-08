@@ -15,7 +15,7 @@ if __name__ == '__main__':
     data_path = Path('..') / 'data' # path of data directory
 
     n_trial_workers = int(f_trial_workers*n_workers)
-    n_trial_workers = 3
+    n_trial_workers = 1
     n_internal_workers = n_workers - n_trial_workers
 
     load_dotenv()
