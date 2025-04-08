@@ -46,13 +46,20 @@ def train_test_split_wrapper(data_path, X, y):
         np.savez(data_path / 'train_test_split_idx.npz', train_idx=train_idx, test_idx=test_idx)
 
     # Split data into training/testing sets
-    X_train, X_test = X[train_idx], X[test_idx]
-    y_train, y_test = y[train_idx], y[test_idx]
+    X_trainval, X_test = X[train_idx], X[test_idx]
+    y_trainval, y_test = y[train_idx], y[test_idx]
 
-    return X_train, X_test, y_train, y_test
+    return X_trainval, X_test, y_trainval, y_test
 
 # Define objective and pipeline for optimization
-def objective(trial, cv, n, X_train, y_train, n_internal_workers):
+def objective(trial, global_params):
+    # Load global parameters
+    n_internal_workers = global_params['n_internal_workers']
+    n = global_params['n']
+    cv = global_params['cv']
+    X_trainval = global_params['X_trainval']
+    y_trainval = global_params['y_trainval']
+
     # Feature extraction
     feature_extractor = FeatureExtractor(trial, n_internal_workers)
     m = feature_extractor.get_m()
@@ -83,26 +90,36 @@ def objective(trial, cv, n, X_train, y_train, n_internal_workers):
     ])
 
     # Calculate objectives
-    cv_error =  1 - cross_val_score(pipeline, X_train, y_train, cv=cv,
+    cv_error =  1 - cross_val_score(pipeline, X_trainval, y_trainval, cv=cv,
                                scoring='accuracy').mean()
     cv_space = asizeof.asizeof(pipeline)*2**(-20) # MB
-    print(f"Error: {cv_error:.2f}")
-    print(f"Size: {int(cv_space)}")
+
     return cv_error, cv_space
 
 # Run optimization process
-def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, db_url):
+def run_optimization(global_params):
+    # Load global parameters
+    k = global_params['k']
+    n_trials = global_params['n_trials']
+    n_trial_workers = global_params['n_trial_workers']
+    data_path = global_params['data_path']
+    db_url = global_params['db_url']
+
     # Load data
     X, y = load_data(data_path)
 
     # Separate training and testing data
-    X_train, X_test, y_train, y_test = train_test_split_wrapper(data_path, X, y)
+    X_trainval, X_test, y_trainval, y_test = train_test_split_wrapper(data_path, X, y)
+    global_params['X_trainval'] = X_trainval
+    global_params['y_trainval'] = y_trainval
     
     # Generate folds for k-fold CV
     cv = StratifiedKFold(n_splits=k, shuffle=True)
+    global_params['cv'] = cv
 
     # Define safe lower upper bound for n of a fold training set
-    n = (k - 1)*(len(X_train) // k)
+    n = (k - 1)*(len(X_trainval) // k)
+    global_params['n'] = n
 
     # Turn on optuna logger
     optuna.logging.set_verbosity(optuna.logging.INFO)
@@ -110,14 +127,7 @@ def run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers
     # Load optuna study and run optimization
     study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
     study.optimize(
-            lambda trial: objective(
-                trial,
-                cv, 
-                n, 
-                X_train,
-                y_train,
-                n_internal_workers
-            ),
+            lambda trial: objective(trial, global_params),
             n_trials=n_trials,
             n_jobs=n_trial_workers,
             callbacks=[MaxTrialsCallback(n_trials)]

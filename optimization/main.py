@@ -5,21 +5,45 @@ import os
 from dotenv import load_dotenv
 
 from optimization import run_optimization
+from reset_db import reset_db
 
-if __name__ == '__main__':
-    # Parameters
-    k = 5 # number of folds for k-fold CV
-    n_trials = 10000 # number of trials for optimization run
-    n_workers = cpu_count() # number of CPUs to use (set to cpu_count() for HPC)
-    f_trial_workers = 0.65 # fraction of workers dedicated to running whole trials
-    data_path = Path('..') / 'data' # path of data directory
+# Parameters
+hpc_enabled = False # enable HPC
+test_db = True # use test database
+reset_db = True # reset database
 
+k = 5 # number of folds for k-fold CV
+n_trials = 10000 # number of trials for optimization run
+f_trial_workers = 0.65 # fraction of workers dedicated to running whole trials (HPC only)
+
+data_path = Path('..') / 'data' # path of data directory
+
+if hpc_enabled:
+    n_workers = cpu_count() # number of CPUs to use
     n_trial_workers = int(f_trial_workers*n_workers)
-    n_trial_workers = 1
     n_internal_workers = n_workers - n_trial_workers
+else:
+    n_trial_workers = 1
+    n_internal_workers = 1
 
+if test_db:
+    db_url = 'sqlite:///test.db'
+else:
     load_dotenv()
     db_url = os.getenv('DB_URL')
 
-    # Run optimization
-    run_optimization(data_path, k, n_trials, n_trial_workers, n_internal_workers, db_url)
+if reset_db and not hpc_enabled:
+    reset_db(db_url)
+
+# Save global parameters
+global_params = {
+        'k': k,
+        'n_trials': n_trials,
+        'n_trial_workers': n_trial_workers,
+        'n_internal_workers': n_internal_workers,
+        'data_path': data_path,
+        'db_url': db_url
+}
+
+# Run optimization
+run_optimization(global_params)
