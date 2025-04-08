@@ -11,6 +11,7 @@ from reset_db import reset_db
 hpc_enabled = False # enable HPC
 test_db = True # use test database
 reset_db = True # reset database
+reset_only = False # only reset database
 
 k = 5 # number of folds for k-fold CV
 n_trials = 10000 # number of trials for optimization run
@@ -46,4 +47,5 @@ global_params = {
 }
 
 # Run optimization
-run_optimization(global_params)
+if not reset_only:
+    run_optimization(global_params)
