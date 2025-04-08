@@ -152,10 +152,10 @@ def run_optimization(global_params):
 
     # Load optuna study and run optimization
     engine_kwargs = {
-        'pool_size': 10,
-        'max_overflow': 5,
+        'pool_size': 5,
+        'max_overflow': 10,
         'pool_timeout': 30,
-        'pool_recycle': 3600
+        'pool_recycle': 15
     }
 
     storage = optuna.storages.RDBStorage(url=db_url, engine_kwargs=engine_kwargs)
