@@ -1,6 +1,7 @@
-from pathlib import Path
+import logging
 from multiprocessing import cpu_count
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -45,6 +46,10 @@ global_params = {
         'data_path': data_path,
         'db_url': db_url
 }
+
+# Configure logger
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 # Run optimization
 if not reset_only:

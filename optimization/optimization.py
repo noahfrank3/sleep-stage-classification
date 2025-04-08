@@ -2,6 +2,7 @@ import h5py
 from memory_profiler import memory_usage
 import numpy as np
 import optuna
+from optuna.storages import RDBStorage
 from optuna.study import MaxTrialsCallback
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
@@ -150,7 +151,14 @@ def run_optimization(global_params):
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     # Load optuna study and run optimization
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=db_url)
+    storage = RDBStorage(
+            url=db_url,
+            engine_kwargs={
+                'pool_pre_ping': True
+            }
+    )
+
+    study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
     study.optimize(
             lambda trial: objective(trial, global_params),
             n_trials=n_trials,
