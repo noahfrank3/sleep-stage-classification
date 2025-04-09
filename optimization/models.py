@@ -10,9 +10,10 @@ from sklearn.naive_bayes import GaussianNB
 import xgboost as xgb
 
 class DimReductionWrapper():
-    def __init__(self, trial, n, m):
+    def __init__(self, trial, n, m, n_y):
         self.trial = trial
         self.max_size = min(n, m)
+        self.max_size_y = min(self.max_size, n_y)
 
     def get_dim_reduction(self):
         dim_reduction_mappings = {
@@ -54,7 +55,7 @@ class DimReductionWrapper():
         return KernelPCA(n_components=n_components, kernel=kernel, gamma=gamma, degree=degree, coef0=coef0, n_jobs=-1)
 
     def LDA_wrapper(self):
-        n_components = self.trial.suggest_int('n_components_LDA', 1, self.max_size, log=True)
+        n_components = self.trial.suggest_int('n_components_LDA', 1, self.max_size_y, log=True)
         return LinearDiscriminantAnalysis(n_components=n_components)
 
     def SVD_wrapper(self):

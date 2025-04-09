@@ -54,6 +54,8 @@ class Optimizer():
         self.X = X
         self.y = y
 
+        self.n_y = len(np.unique(self.y))
+
     # Wraps train_test_split to enable persistant storage for reusing train/test split
     def train_test_split_wrapper(self):
         # Check if data file exists and load indices
@@ -82,6 +84,7 @@ class Optimizer():
         objective_params = {
             'n_internal_workers': self.n_internal_workers,
             'n': self.n,
+            'n_y': self.n_y,
             'k': self.k,
             'cv': self.cv,
             'X_trainval': self.X_trainval,
@@ -92,7 +95,7 @@ class Optimizer():
         
         storage = optuna.storages.JournalStorage(
                 optuna.storages.journal.JournalFileBackend(
-                    self.data_path / 'optuna_data.log'))
+                    str(self.data_path / 'optuna_data.log')))
 
         # Load optuna study and run optimization
         study = optuna.create_study(
@@ -121,6 +124,7 @@ def objective(trial, objective_params):
     # Load global parameters
     n_internal_workers = objective_params['n_internal_workers']
     n = objective_params['n']
+    n_y = objective_params['n_y']
 
     # Feature extraction
     feature_extractor = FeatureExtractor(trial, n_internal_workers)
@@ -136,7 +140,7 @@ def objective(trial, objective_params):
     )
 
     # Dimensionality reduction
-    dim_reduction = DimReductionWrapper(trial, n, m)
+    dim_reduction = DimReductionWrapper(trial, n, m, n_y)
     dim_reduction = dim_reduction.get_dim_reduction()
 
     # Classification
