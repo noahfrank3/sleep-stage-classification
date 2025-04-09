@@ -91,7 +91,7 @@ class Optimizer():
             'y_trainval': self.y_trainval
         }
 
-        optuna.logging.set_verbosity(optuna.logging.INFO)
+        optuna.logging.set_verbosity(optuna.logging.DEBUG)
         
         storage = optuna.storages.JournalStorage(
                 optuna.storages.journal.JournalFileBackend(
