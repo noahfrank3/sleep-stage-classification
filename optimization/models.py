@@ -103,7 +103,7 @@ class CLFWrapper():
         else:
             l1_ratio = None
 
-        return LogisticRegression(penalty=penalty, C=C, l1_ratio=l1_ratio, n_jobs=-1)
+        return LogisticRegression(solver='saga', penalty=penalty, C=C, l1_ratio=l1_ratio, n_jobs=-1)
 
     def NB_wrapper(self):
         return GaussianNB()
