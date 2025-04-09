@@ -8,7 +8,10 @@ if __name__ == '__main__':
             optuna.storages.journal.JournalFileBackend(
                 str(Path('..') / 'data' / 'optuna_data.log')))
 
-
     study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
-    fig = plot_pareto_front(study)
+
+    df = study.trials_dataframe()
+    print(df)
+
+    fig = plot_pareto_front(study, target_names=['CV Error', 'Memory (MB)'])
     fig.show()
