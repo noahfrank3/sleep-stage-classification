@@ -1,4 +1,3 @@
-from multiprocessing import cpu_count
 from pathlib import Path
 
 import h5py
@@ -16,7 +15,7 @@ from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
 
 class Optimizer():
-    def __init__(self, hpc_enabled, k, n_trials, f_trial_workers):
+    def __init__(self, hpc_enabled, n_cpus, k, n_trials, f_trial_workers):
         self.k = k
         self.n_trials = n_trials
         self.f_trial_workers = f_trial_workers
@@ -24,7 +23,7 @@ class Optimizer():
         self.data_path = Path('..') / 'data'
 
         if hpc_enabled:
-            n_workers = cpu_count()
+            n_workers = n_cpus
             self.n_trial_workers = int(self.f_trial_workers*n_workers)
             self.n_internal_workers = n_workers - self.n_trial_workers
         else:
