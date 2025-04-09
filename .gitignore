@@ -5,7 +5,5 @@ data/*
 __pycache__/
 preprocessing/__pycache__/
 optimization/__pycache__/
-optimization/.env
-optimization/test.db
 .python-version
 py12env/
