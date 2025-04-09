@@ -65,7 +65,7 @@ class Optimizer():
             test_idx = idx['test_idx']
         # Create new train/test split if no data file exists
         except FileNotFoundError:
-            train_idx, test_idx = train_test_split(np.arange(len(y)), test_size=0.2, shuffle=True, stratify=y)
+            train_idx, test_idx = train_test_split(np.arange(len(self.y)), test_size=0.2, shuffle=True, stratify=self.y)
             np.savez(self.data_path / 'train_test_split_idx.npz', train_idx=train_idx, test_idx=test_idx)
 
         # Split data into training/testing sets
