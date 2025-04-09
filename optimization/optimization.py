@@ -1,8 +1,11 @@
+from multiprocessing import cpu_count
+from pathlib import Path
+
 import h5py
 from memory_profiler import memory_usage
 import numpy as np
 import optuna
-from optuna.storages import RDBStorage
+from optuna.samplers import NSGAIISampler
 from optuna.study import MaxTrialsCallback
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
@@ -12,51 +15,112 @@ from sklearn.pipeline import Pipeline
 from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
 
-# Loads X and Y from the h5 data file
-def load_data(data_path):
-    # Loop through each signal and label, adding to X and y respectively
-    with h5py.File(data_path / 'data.h5', 'r') as hdf:
+class Optimizer():
+    def __init__(self, hpc_enabled, k, n_trials, f_trial_workers):
+        self.k = k
+        self.n_trials = n_trials
+        self.f_trial_workers = f_trial_workers
+
+        self.data_path = Path('..') / 'data'
+
+        if hpc_enabled:
+            n_workers = cpu_count()
+            self.n_trial_workers = int(self.f_trial_workers*n_workers)
+            self.n_internal_workers = n_workers - self.n_trial_workers
+        else:
+            self.n_trial_workers = 1
+            self.n_internal_workers = 1
+
+    # Loads X and Y from the h5 data file
+    def load_data(self):
+        # Loop through each signal and label, adding to X and y respectively
         X = []
         y = []
 
-        for group in hdf.keys():
-            signals = hdf[group]
-            for signal in signals.values():
-                X.append(signal.attrs['id'])
-                y.append(signal.attrs['sleep_stage'])
+        with h5py.File(self.data_path / 'data.h5', 'r') as hdf:
+            for group in hdf.keys():
+                signals = hdf[group]
+                for signal in signals.values():
+                    X.append(signal.attrs['id'])
+                    y.append(signal.attrs['sleep_stage'])
 
-    X = np.array(X)
-    y = np.array(y)
+        X = np.array(X)
+        y = np.array(y)
 
-    # Encode labels
-    label_encoder = LabelEncoder()
-    y = label_encoder.fit_transform(y)
+        # Encode labels
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(y)
 
-    return X, y
+        self.X = X
+        self.y = y
 
-# Wraps train_test_split to enable persistant storage for reusing train/test split
-def train_test_split_wrapper(data_path, X, y):
-    # Check if data file exists and load indices
-    try:
-        idx = np.load(data_path / 'train_test_split_idx.npz')
-        train_idx = idx['train_idx']
-        test_idx = idx['test_idx']
-    # Create new train/test split if no data file exists
-    except FileNotFoundError:
-        train_idx, test_idx = train_test_split(np.arange(len(y)), test_size=0.2, shuffle=True, stratify=y)
-        np.savez(data_path / 'train_test_split_idx.npz', train_idx=train_idx, test_idx=test_idx)
+    # Wraps train_test_split to enable persistant storage for reusing train/test split
+    def train_test_split_wrapper(self):
+        # Check if data file exists and load indices
+        try:
+            idx = np.load(self.data_path / 'train_test_split_idx.npz')
+            train_idx = idx['train_idx']
+            test_idx = idx['test_idx']
+        # Create new train/test split if no data file exists
+        except FileNotFoundError:
+            train_idx, test_idx = train_test_split(np.arange(len(y)), test_size=0.2, shuffle=True, stratify=y)
+            np.savez(self.data_path / 'train_test_split_idx.npz', train_idx=train_idx, test_idx=test_idx)
 
-    # Split data into training/testing sets
-    X_trainval, X_test = X[train_idx], X[test_idx]
-    y_trainval, y_test = y[train_idx], y[test_idx]
+        # Split data into training/testing sets
+        self.X_trainval = self.X[train_idx]
+        self.y_trainval = self.y[train_idx]
 
-    return X_trainval, X_test, y_trainval, y_test
+        del self.X
+        del self.y
+
+    def k_fold(self):
+        self.cv = StratifiedKFold(n_splits=self.k, shuffle=True)
+        self.n = (self.k - 1)*(len(self.X_trainval) // self.k)
+    
+    def configure_optuna(self):
+        # Define parameters for objective function
+        objective_params = {
+            'n_internal_workers': self.n_internal_workers,
+            'n': self.n,
+            'k': self.k,
+            'cv': self.cv,
+            'X_trainval': self.X_trainval,
+            'y_trainval': self.y_trainval
+        }
+
+        optuna.logging.set_verbosity(optuna.logging.INFO)
+        
+        storage = optuna.storages.JournalStorage(
+                optuna.storages.journal.JournalFileBackend(
+                    self.data_path / 'optuna_data.log'))
+
+        # Load optuna study and run optimization
+        study = optuna.create_study(
+                study_name='sleep_stage_classification',
+                storage=storage,
+                load_if_exists=True,
+                sampler=NSGAIISampler(),
+                directions=['minimize', 'minimize']
+        )
+
+        study.optimize(
+                lambda trial: objective(trial, objective_params),
+                n_trials=self.n_trials,
+                n_jobs=self.n_trial_workers,
+                callbacks=[MaxTrialsCallback(self.n_trials)],
+        )
+
+    def optimize(self):
+        self.load_data()
+        self.train_test_split_wrapper()
+        self.k_fold()
+        self.configure_optuna()
 
 # Define objective and pipeline for optimization
-def objective(trial, global_params):
+def objective(trial, objective_params):
     # Load global parameters
-    n_internal_workers = global_params['n_internal_workers']
-    n = global_params['n']
+    n_internal_workers = objective_params['n_internal_workers']
+    n = objective_params['n']
 
     # Feature extraction
     feature_extractor = FeatureExtractor(trial, n_internal_workers)
@@ -88,14 +152,14 @@ def objective(trial, global_params):
     ])
 
     # Calculate objectives
-    return evaluate_objectives(pipeline, global_params)
+    return evaluate_objectives(pipeline, objective_params)
 
-def evaluate_objectives(pipeline, global_params):
+def evaluate_objectives(pipeline, objective_params):
     # Load global parameters
-    k = global_params['k']
-    cv = global_params['cv']
-    X_trainval = global_params['X_trainval']
-    y_trainval = global_params['y_trainval']
+    k = objective_params['k']
+    cv = objective_params['cv']
+    X_trainval = objective_params['X_trainval']
+    y_trainval = objective_params['y_trainval']
 
     cv_error, cv_memory = np.empty(k), np.empty(k)
 
@@ -121,50 +185,3 @@ def evaluate_fold_objectives(pipeline, X_train, y_train, X_val, y_val):
     memory = np.max(memory_usage((pipeline.predict, (X_val,))))
     
     return error, memory
-
-# Run optimization process
-def run_optimization(global_params):
-    # Load global parameters
-    k = global_params['k']
-    n_trials = global_params['n_trials']
-    n_trial_workers = global_params['n_trial_workers']
-    data_path = global_params['data_path']
-    db_url = global_params['db_url']
-
-    # Load data
-    X, y = load_data(data_path)
-
-    # Separate training and testing data
-    X_trainval, X_test, y_trainval, y_test = train_test_split_wrapper(data_path, X, y)
-    global_params['X_trainval'] = X_trainval
-    global_params['y_trainval'] = y_trainval
-    
-    # Generate folds for k-fold CV
-    cv = StratifiedKFold(n_splits=k, shuffle=True)
-    global_params['cv'] = cv
-
-    # Define safe lower upper bound for n of a fold training set
-    n = (k - 1)*(len(X_trainval) // k)
-    global_params['n'] = n
-
-    # Turn on optuna logger
-    optuna.logging.set_verbosity(optuna.logging.INFO)
-
-    # Load optuna study and run optimization
-    storage = RDBStorage(
-            url=db_url,
-            engine_kwargs={
-                'pool_pre_ping': True,
-                'pool_size': 5,
-                'max_overflow': 10,
-                'pool_timeout': 10,
-            }
-    )
-
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
-    study.optimize(
-            lambda trial: objective(trial, global_params),
-            n_trials=n_trials,
-            n_jobs=n_trial_workers,
-            callbacks=[MaxTrialsCallback(n_trials)]
-    )
