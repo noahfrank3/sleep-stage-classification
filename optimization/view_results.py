@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 from optuna.storages import RDBStorage
+import pandas as pd
 
 if __name__ == '__main__':
     load_dotenv()
@@ -13,6 +14,7 @@ if __name__ == '__main__':
     storage = RDBStorage(url=db_url)
     study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
 
+    pd.set_option('display.max_rows', None)
     df = study.trials_dataframe(attrs=('state', 'value'))
     df = df.rename(columns={
         'state': 'Status',

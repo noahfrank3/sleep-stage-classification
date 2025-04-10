@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import logging
 import os
 from pathlib import Path
@@ -82,7 +82,7 @@ class Optimizer():
     
     def configure_optuna(self):
         # Define parameters for objective function
-        objective_params = {
+        self.objective_params = {
             'n': self.n,
             'n_y': self.n_y,
             'k': self.k,
@@ -105,7 +105,7 @@ class Optimizer():
         )
 
         # Load optuna study and run optimization
-        study = optuna.create_study(
+        self.study = optuna.create_study(
                 study_name='sleep_stage_classification',
                 storage=storage,
                 load_if_exists=True,
@@ -116,30 +116,25 @@ class Optimizer():
         logging.info("[Main] Optuna study loaded successfully!")
 
         while True:
-            trials = []
-            for _ in range(self.batch_size):
-                trial = study.ask()
-                trials.append(trial)
-                logging.info(f"[Trial {trial.number}] New trial received")
-
             with ProcessPoolExecutor(max_workers=self.batch_size) as executor:
-                futures = [executor.submit(objective_func, trial, objective_params) for trial in trials]
-                objectives = [future.result() for future in futures]
-            logging.info("[Main] All objectives for this batch have been computed")
+                futures = [
+                    executor.submit(self.run_trial)
+                    for _ in range(self.batch_size)
+                ]
 
-            for trial, objective in zip(trials, objectives):
-                logging.info(f"[Trial {trial.number}] Attempting to save...")
-                study.tell(trial, objective)
-                logging.info(f"[Trial {trial.number}] Trial successfully saved!")
+            logging.info(f"[Main] Batch completed")
 
-        '''
-        study.optimize(
-                lambda trial: objective(trial, objective_params),
-                n_trials=self.n_trials,
-                n_jobs=self.n_trial_workers,
-                callbacks=[MaxTrialsCallback(self.n_trials)],
-        )
-        '''
+    def run_trial(self):
+        trial = self.study.ask()
+        logging.info(f"[Trial {trial.number}] New trial received")
+        objectives = objective_func(trial, self.objective_params)
+
+        try:
+            logging.info(f"[Trial {trial.number}] Attempting to save...")
+            self.study.tell(trial, objectives)
+            logging.info(f"[Trial {trial.number}] Trial successfully saved!")
+        except Exception as e:
+            logging.error(f"[Trial {trial.number}] Failed with error: {e}")
 
     def optimize(self):
         self.load_data()
