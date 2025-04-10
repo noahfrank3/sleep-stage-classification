@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J sleep_stage_optimization
 #SBATCH -o out.log
-#SBATCH --ntasks=5
+#SBATCH --arrays=0-7
 #SBATCH --cpus-per-task=24
 #SBATCH --mem-per-cpu=2G
 
