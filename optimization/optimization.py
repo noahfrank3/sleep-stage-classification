@@ -67,7 +67,7 @@ class Optimizer():
         self.X_trainval = self.X[train_idx]
         self.y_trainval = self.y[train_idx]
 
-        self.n_y = len(unique_labels(self.y_trainval))
+        self.n_y = len(unique_labels(self.y_trainval)) - 1
 
         del self.X
         del self.y
@@ -188,11 +188,11 @@ def objective_func(trial, objective_params):
     ])
 
     # Calculate objectives
-    objectives = evaluate_objectives(pipeline, objective_params)
-    logging.info(f"[Trial {trial.number}] CV Error: {objectives[0]:.3g}, Memory: {objectives[1]} MB")
+    objectives = evaluate_objectives(trial, pipeline, objective_params)
+    logging.info(f"[Trial {trial.number}] CV Error: {objectives[0]:.3g}, Memory: {objectives[1]:.0f} MB")
     return objectives
 
-def evaluate_objectives(pipeline, objective_params):
+def evaluate_objectives(trial, pipeline, objective_params):
     # Load global parameters
     k = objective_params['k']
     cv = objective_params['cv']
@@ -202,6 +202,8 @@ def evaluate_objectives(pipeline, objective_params):
     cv_error, cv_memory = np.empty(k), np.empty(k)
 
     for idx, (train_idx, val_idx) in enumerate(cv.split(X_trainval, y_trainval)):
+        logging.info(f"[Trial {trial.number}] Evaluating fold {idx + 1}/{k}...")
+
         # Split data into training and validation sets
         X_train, y_train = X_trainval[train_idx], y_trainval[train_idx]
         X_val, y_val = X_trainval[val_idx], y_trainval[val_idx]
@@ -211,6 +213,8 @@ def evaluate_objectives(pipeline, objective_params):
         
         cv_error[idx] = error
         cv_memory[idx] = memory
+
+        logging.info(f"[Trial {trial.number}] Successfully evaluated fold {idx + 1}/{k}!")
 
     return np.mean(cv_error), np.max(cv_memory)
 
