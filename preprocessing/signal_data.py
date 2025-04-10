@@ -66,7 +66,7 @@ def save_signals(group, signal, annotations):
 
         # Condition signal
         signal_snippet = signal[start_idx:end_idx]
-        signal_snippet = condition_signal(signal_snippet)
+        #signal_snippet = condition_signal(signal_snippet)
 
         # Store signal and sleep stage
         dataset = group.create_dataset('d' + str(idx), data=signal_snippet, compression='gzip')

@@ -5,40 +5,93 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 from optuna.storages import RDBStorage
+from optuna.visualization import plot_hypervolume_history, plot_param_importances
 import pandas as pd
+from plotly.io import show
 
-if __name__ == '__main__':
+clf_mappings = {
+    'QDA': 'deepskyblue',
+    'LR': 'darkorange',
+    'NB': 'forestgreen',
+    'DT': 'crimson',
+    'RF': 'goldenrod',
+    'kNN': 'mediumslateblue',
+    'SVM': 'darkmagenta',
+    'XGB': 'dodgerblue',
+    'NN': 'slategray'
+}
+
+def get_study():
     load_dotenv()
     db_url = os.getenv('DB_URL')
 
-    storage = RDBStorage(url=db_url)
-    study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
+    return optuna.load_study(
+            study_name='sleep_stage_classification',
+            storage=RDBStorage(url=db_url)
+    )
 
-    pd.set_option('display.max_rows', None)
-    df = study.trials_dataframe(attrs=('state', 'value'))
-    df = df.rename(columns={
-        'state': 'Status',
-        'value_0': 'CV Error',
-        'value_1': 'Memory (MB)'
+def get_all_data(study):
+    data = study.trials_dataframe(attrs=('state', 'params', 'value'))
+    data = data[data['state'] == 'COMPLETE']
+    data = data.rename(columns={
+        'params_clf': 'clf',
+        'values_0': 'cv_error',
+        'values_1': 'memory'
     })
+    
+    data_1 = data[data['memory'] < 2000]
+    data_2 = data[data['memory'] >= 2000]
 
-    print(df)
+    data_2['memory'] -= data_2['memory'].mean()
+    data_2['memory'] /= np.std(data_2['memory'], ddof=1)
+    data_2['memory'] *= np.std(data_1['memory'], ddof=1)
+    data_2['memory'] += data_1['memory'].mean()
 
-    cv_errors = []
-    memorys = []
+    data = pd.concat([data_1, data_2], ignore_index=True)
+
+    return data[['clf', 'cv_error', 'memory']]
+
+def get_pareto_data(study):
+    data = []
     for trial in study.best_trials:
-        cv_errors.append(trial.values[0])
-        memorys.append(trial.values[1])
-    cv_errors = np.array(cv_errors)
-    memorys = np.array(memorys)
+        data.append({
+            'clf': trial.params['clf'],
+            'cv_error': trial.values[0],
+            'memory': trial.values[1]
+        })
+    return pd.DataFrame(data)
 
-    print(cv_errors)
-    print(memorys)
+def get_data_by_clf(data):
+    old_data = data
+    data = {}
+    for clf in clf_mappings.keys():
+        data[clf] = old_data[old_data['clf'] == clf]
+    return data
+
+def plot_data(data, title):
+    data = get_data_by_clf(data)
 
     fig, ax = plt.subplots()
-    ax.scatter(cv_errors, memorys, color='dodgerblue')
-    ax.set_title("Pareto Frontier", fontsize='large')
+    for clf, subdata in data.items():
+        ax.scatter(subdata['cv_error'], subdata['memory'], color=clf_mappings[clf], label=clf)
+    ax.set_title(title, fontsize='large')
     ax.set_xlabel("CV Error", fontsize='large')
     ax.set_ylabel("Memory (MB)", fontsize='large')
+    ax.legend(fontsize='large')
     ax.grid(True)
-    plt.show()
+    fig.savefig(f'{title.lower().replace(' ', '_')}.svg')
+
+if __name__ == '__main__':
+    study = get_study()
+
+    all_data = get_all_data(study)
+    plot_data(all_data, 'All Data')
+
+    pareto_data = get_pareto_data(study)
+    plot_data(pareto_data, 'Pareto Frontier')
+
+    print(f"Number of completed trials: {len(all_data)}")
+
+    fig = plot_hypervolume_history(study, (1, 4*1024))
+    # fig = plot_param_importances(study)
+    show(fig)
