@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 from optuna.storages import RDBStorage
-from optuna.visualization import plot_pareto_front
 
 if __name__ == '__main__':
     load_dotenv()
@@ -40,4 +39,4 @@ if __name__ == '__main__':
     ax.set_xlabel("CV Error", fontsize='large')
     ax.set_ylabel("Memory (MB)", fontsize='large')
     ax.grid(True)
-    fig.show()
+    plt.show()
