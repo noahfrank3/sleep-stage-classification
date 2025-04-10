@@ -110,13 +110,13 @@ class CLFWrapper():
 
     def DT_wrapper(self):
         max_depth = self.trial.suggest_int('max_depth_DT', 1, self.max_size, log=True)
-        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_DT', 1, self.max_size, log=True)
+        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_DT', 2, self.max_size, log=True)
         return DecisionTreeClassifier(max_depth=max_depth, max_leaf_nodes=max_leaf_nodes)
 
     def RF_wrapper(self):
         n_estimators = self.trial.suggest_int('n_estimators_RF', 1, 1000, log=True)
         max_depth = self.trial.suggest_int('max_depth_RF', 1, self.max_size, log=True)
-        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_RF', 1, self.max_size, log=True)
+        max_leaf_nodes = self.trial.suggest_int('max_leaf_nodes_RF', 2, self.max_size, log=True)
         return RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, max_leaf_nodes=max_leaf_nodes, n_jobs=-1)
 
     def kNN_wrapper(self):
