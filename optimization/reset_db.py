@@ -1,3 +1,6 @@
+import os
+
+from dotenv import load_dotenv
 import optuna
 from optuna.samplers import NSGAIISampler
 
@@ -16,3 +19,9 @@ def reset_db(db_url):
             sampler=NSGAIISampler(),
             directions=['minimize', 'minimize']
     )
+
+if __name__ == '__main__':
+    load_dotenv()
+    db_url = os.getenv('DB_URL')
+
+    reset_db(db_url)
