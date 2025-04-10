@@ -1,4 +1,3 @@
-from multiprocessing import Pool
 from pathlib import Path
 
 import h5py
@@ -9,7 +8,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from signal_features import get_signal_features
 
 class FeatureExtractor(BaseEstimator, TransformerMixin):
-    def __init__(self, trial, n_workers):
+    def __init__(self, trial):
         alpha_divs = trial.suggest_int('alpha_divs', 1, 2)
         beta_divs = trial.suggest_int('beta_divs', 1, 4)
         gamma_divs = trial.suggest_int('gamma_divs', 1, 5)
@@ -21,14 +20,14 @@ class FeatureExtractor(BaseEstimator, TransformerMixin):
                 'beta': beta_divs,
                 'gamma': gamma_divs
         }
-        self.n_workers = n_workers
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        with Pool(self.n_workers) as pool:
-            X_new = pool.map(self.extract_features, X)
+        X_new = []
+        for x in X:
+            X_new.append(self.extract_features(x))
         return pd.DataFrame(X_new)
 
     def extract_features(self, x):

@@ -1,3 +1,6 @@
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from multiprocessing import Pool
 import os
 from pathlib import Path
 
@@ -8,7 +11,6 @@ import numpy as np
 import optuna
 from optuna.samplers import NSGAIISampler
 from optuna.storages import RDBStorage
-from optuna.study import MaxTrialsCallback
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
@@ -19,20 +21,11 @@ from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
 
 class Optimizer():
-    def __init__(self, hpc_enabled, n_cpus, k, n_trials, f_trial_workers):
+    def __init__(self, batch_size, k):
+        self.batch_size = batch_size
         self.k = k
-        self.n_trials = n_trials
-        self.f_trial_workers = f_trial_workers
 
         self.data_path = Path('..') / 'data'
-
-        if hpc_enabled:
-            n_workers = n_cpus
-            self.n_trial_workers = int(self.f_trial_workers*n_workers)
-            self.n_internal_workers = n_workers - self.n_trial_workers
-        else:
-            self.n_trial_workers = 1
-            self.n_internal_workers = 1
 
     # Loads X and Y from the h5 data file
     def load_data(self):
@@ -85,7 +78,6 @@ class Optimizer():
     def configure_optuna(self):
         # Define parameters for objective function
         objective_params = {
-            'n_internal_workers': self.n_internal_workers,
             'n': self.n,
             'n_y': self.n_y,
             'k': self.k,
@@ -94,11 +86,11 @@ class Optimizer():
             'y_trainval': self.y_trainval
         }
 
-        optuna.logging.set_verbosity(optuna.logging.DEBUG)
-        
+        optuna.logging.set_verbosity(optuna.logging.INFO)
+
         load_dotenv()
         db_url = os.getenv('DB_URL')
-
+        
         storage = RDBStorage(
                 url=db_url,
                 # engine_kwargs={
@@ -118,12 +110,29 @@ class Optimizer():
                 directions=['minimize', 'minimize']
         )
 
+        while True:
+            trials = []
+            for _ in range(self.batch_size):
+                trials.append(study.ask())
+                print("New trial received")
+
+            with ProcessPoolExecutor(max_workers=self.batch_size) as executor:
+                futures = [executor.submit(objective_func, trial, objective_params) for trial in trials]
+                objectives = [future.result() for future in futures]
+            print("Objectives computed")
+
+            for trial, objective in zip(trials, objectives):
+                study.tell(trial, objective)
+                print("Trial completed")
+
+        '''
         study.optimize(
                 lambda trial: objective(trial, objective_params),
                 n_trials=self.n_trials,
                 n_jobs=self.n_trial_workers,
                 callbacks=[MaxTrialsCallback(self.n_trials)],
         )
+        '''
 
     def optimize(self):
         self.load_data()
@@ -132,14 +141,13 @@ class Optimizer():
         self.configure_optuna()
 
 # Define objective and pipeline for optimization
-def objective(trial, objective_params):
+def objective_func(trial, objective_params):
     # Load global parameters
-    n_internal_workers = objective_params['n_internal_workers']
     n = objective_params['n']
     n_y = objective_params['n_y']
 
     # Feature extraction
-    feature_extractor = FeatureExtractor(trial, n_internal_workers)
+    feature_extractor = FeatureExtractor(trial)
     m = feature_extractor.get_m()
 
     # Encode features
