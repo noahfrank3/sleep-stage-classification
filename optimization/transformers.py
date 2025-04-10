@@ -46,7 +46,7 @@ class FeatureExtractor(BaseEstimator, TransformerMixin):
             return group_features | signal_features
 
     def get_m(self):
-        return sum(self.n_divs_map.values()) + 5
+        return sum(self.n_divs_map.values()) + 3
 
 class CircularEncoder(BaseEstimator, TransformerMixin):
     def __init__(self, period=1):
