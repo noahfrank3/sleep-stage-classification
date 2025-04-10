@@ -1,7 +1,7 @@
 from optimization import Optimizer
 
 if __name__ == '__main__':
-    hpc_enabled = False
+    hpc_enabled = True
     n_cpus = 24
     k = 5
     n_trials = 10000
