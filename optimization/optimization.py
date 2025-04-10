@@ -13,6 +13,7 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
+from sklearn.utils.multiclass import unique_labels
 
 from transformers import FeatureExtractor, CircularEncoder
 from models import DimReductionWrapper, CLFWrapper
@@ -56,8 +57,6 @@ class Optimizer():
         self.X = X
         self.y = y
 
-        self.n_y = len(np.unique(self.y))
-
     # Wraps train_test_split to enable persistant storage for reusing train/test split
     def train_test_split_wrapper(self):
         # Check if data file exists and load indices
@@ -73,6 +72,8 @@ class Optimizer():
         # Split data into training/testing sets
         self.X_trainval = self.X[train_idx]
         self.y_trainval = self.y[train_idx]
+
+        self.n_y = len(unique_labels(self.y_trainval))
 
         del self.X
         del self.y
