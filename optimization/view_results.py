@@ -1,13 +1,15 @@
-from pathlib import Path
+import os
 
+from dotenv import load_dotenv
 import optuna
+from optuna.storages import RDBStorage
 from optuna.visualization import plot_pareto_front
 
 if __name__ == '__main__':
-    storage = optuna.storages.JournalStorage(
-            optuna.storages.journal.JournalFileBackend(
-                str(Path('..') / 'data' / 'optuna_data.log')))
+    load_dotenv()
+    db_url = os.getenv('DB_URL')
 
+    storage = RDBStorage(url=db_url)
     study = optuna.load_study(study_name='sleep_stage_classification', storage=storage)
 
     df = study.trials_dataframe()
