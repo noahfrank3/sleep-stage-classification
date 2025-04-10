@@ -1,10 +1,13 @@
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 import h5py
 from memory_profiler import memory_usage
 import numpy as np
 import optuna
 from optuna.samplers import NSGAIISampler
+from optuna.storages import RDBStorage
 from optuna.study import MaxTrialsCallback
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.compose import ColumnTransformer
@@ -92,9 +95,18 @@ class Optimizer():
 
         optuna.logging.set_verbosity(optuna.logging.DEBUG)
         
-        storage = optuna.storages.JournalStorage(
-                optuna.storages.journal.JournalFileBackend(
-                    str(self.data_path / 'optuna_data.log')))
+        load_dotenv()
+        db_url = os.getenv('DB_URL')
+
+        storage = RDBStorage(
+                url=db_url,
+                # engine_kwargs={
+                #     'pool_pre_ping': True,
+                #     'pool_size': 5,
+                #     'max_overflow': 10,
+                #     'pool_timeout': 10,
+                # }
+        )
 
         # Load optuna study and run optimization
         study = optuna.create_study(

@@ -5,5 +5,6 @@ data/*
 __pycache__/
 preprocessing/__pycache__/
 optimization/__pycache__/
+optimization/.env
 .python-version
 py12env/
