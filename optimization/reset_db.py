@@ -16,7 +16,7 @@ def reset_db(db_url):
     optuna.create_study(
             study_name='sleep_stage_classification',
             storage=db_url,
-            sampler=NSGAIISampler(),
+            sampler=NSGAIISampler(population_size=200),
             directions=['minimize', 'minimize']
     )
 
