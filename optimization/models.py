@@ -1,3 +1,5 @@
+import logging
+
 from sklearn.decomposition import KernelPCA, TruncatedSVD
 from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
@@ -25,6 +27,7 @@ class DimReductionWrapper():
         }
 
         dim_reduction = self.trial.suggest_categorical('dim_reduction', list(dim_reduction_mappings.keys()))
+        logging.info(f"[Trial {self.trial.number}] {dim_reduction} selected for dimensionality reduction")
 
         if dim_reduction is None:
             dim_reduction = 'passthrough'
@@ -85,6 +88,7 @@ class CLFWrapper():
         }
 
         clf = self.trial.suggest_categorical('clf', list(clf_mappings.keys()))
+        logging.info(f"[Trial {self.trial.number}] {clf} selected as classifier")
         return clf_mappings[clf]()
 
     def QDA_wrapper(self):

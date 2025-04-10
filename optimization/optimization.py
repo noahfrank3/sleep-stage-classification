@@ -1,6 +1,5 @@
 from concurrent.futures import ProcessPoolExecutor
-from functools import partial
-from multiprocessing import Pool
+import logging
 import os
 from pathlib import Path
 
@@ -50,6 +49,8 @@ class Optimizer():
         self.X = X
         self.y = y
 
+        logging.info("[Main] Data loaded sucessfully!")
+
     # Wraps train_test_split to enable persistant storage for reusing train/test split
     def train_test_split_wrapper(self):
         # Check if data file exists and load indices
@@ -71,9 +72,13 @@ class Optimizer():
         del self.X
         del self.y
 
+        logging.info("[Main] Train-test-split completed sucessfully!")
+
     def k_fold(self):
         self.cv = StratifiedKFold(n_splits=self.k, shuffle=True)
         self.n = (self.k - 1)*(len(self.X_trainval) // self.k)
+
+        logging.info("[Main] K-fold split completed successfully!")
     
     def configure_optuna(self):
         # Define parameters for objective function
@@ -85,8 +90,6 @@ class Optimizer():
             'X_trainval': self.X_trainval,
             'y_trainval': self.y_trainval
         }
-
-        optuna.logging.set_verbosity(optuna.logging.INFO)
 
         load_dotenv()
         db_url = os.getenv('DB_URL')
@@ -110,20 +113,24 @@ class Optimizer():
                 directions=['minimize', 'minimize']
         )
 
+        logging.info("[Main] Optuna study loaded successfully!")
+
         while True:
             trials = []
             for _ in range(self.batch_size):
-                trials.append(study.ask())
-                print("New trial received")
+                trial = study.ask()
+                trials.append(trial)
+                logging.info(f"[Trial {trial.number}] New trial received")
 
             with ProcessPoolExecutor(max_workers=self.batch_size) as executor:
                 futures = [executor.submit(objective_func, trial, objective_params) for trial in trials]
                 objectives = [future.result() for future in futures]
-            print("Objectives computed")
+            logging.info("[Main] All objectives for this batch have been computed")
 
             for trial, objective in zip(trials, objectives):
+                logging.info(f"[Trial {trial.number}] Attempting to save...")
                 study.tell(trial, objective)
-                print("Trial completed")
+                logging.info(f"[Trial {trial.number}] Trial successfully saved!")
 
         '''
         study.optimize(
@@ -150,6 +157,9 @@ def objective_func(trial, objective_params):
     feature_extractor = FeatureExtractor(trial)
     m = feature_extractor.get_m()
 
+    logging.info(f"[Trial {trial.number}] Features extracted")
+
+
     # Encode features
     encoder = ColumnTransformer(
         transformers=[
@@ -158,6 +168,8 @@ def objective_func(trial, objective_params):
             ('time', CircularEncoder(), ['lights_off'])
         ]
     )
+
+    logging.info(f"[Trial {trial.number}] Features encoded")
 
     # Dimensionality reduction
     dim_reduction = DimReductionWrapper(trial, n, m, n_y)
@@ -176,7 +188,9 @@ def objective_func(trial, objective_params):
     ])
 
     # Calculate objectives
-    return evaluate_objectives(pipeline, objective_params)
+    objectives = evaluate_objectives(pipeline, objective_params)
+    logging.info(f"[Trial {trial.number}] CV Error: {objectives[0]:.3g}, Memory: {objectives[1]} MB")
+    return objectives
 
 def evaluate_objectives(pipeline, objective_params):
     # Load global parameters
