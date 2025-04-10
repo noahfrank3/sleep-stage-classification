@@ -73,6 +73,7 @@ class CLFWrapper():
     def __init__(self, trial, n, m):
         self.trial = trial
         self.max_size = min(n, m)
+        self.n = n
 
     def get_clf(self):
         clf_mappings = {
@@ -124,7 +125,7 @@ class CLFWrapper():
         return RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, max_leaf_nodes=max_leaf_nodes, n_jobs=-1)
 
     def kNN_wrapper(self):
-        n_neighbors = self.trial.suggest_int('n_neighbors_kNN', 1, self.max_size, log=True)
+        n_neighbors = self.trial.suggest_int('n_neighbors_kNN', 1, self.n, log=True)
         weights = self.trial.suggest_categorical('weights_kNN', ['uniform', 'distance'])
         return KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, n_jobs=-1)
 
