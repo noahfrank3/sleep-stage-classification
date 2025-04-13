@@ -4,6 +4,10 @@ from .sigproc.settings import SigprocSettings
 
 ### Raw configuration
 
+# HPC
+HPC_PREPROCESSING = False # enable HPC for preprocessing
+HPC_PREPROCESSING_JOBS = 23 # number of CPUs available for HPC preprocessing
+
 # Data files
 DOWNLOAD_METHOD = 'wget' # method of downloading dataset, 'wget' or 'zip'
 
