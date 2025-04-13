@@ -1,11 +1,6 @@
-sleep-edf-database-expanded-1.0.0/
-physionet.org/
-data/*
-!data/.gitkeep
-__pycache__/
-preprocessing/__pycache__/
-optimization/__pycache__/
-optimization/.env
-optimization/log.log
-.python-version
-py12env/
+data/
+output/
+venv/
+.env
+**/__pycache__/
+*.pyc
