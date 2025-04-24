@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import rfft, rfftfreq
-from scipy.stats import norm
+from scipy.stats import norm, chi2
 
-from sleepclf.config import FS, SIGPROC_SETTINGS, OUTPUT_PATH
+from config.config import CONFIG
 from .preprocess import condition_signal
+
+FS = CONFIG['sigproc']['sample frequency']
+OUTPUT_PATH = CONFIG['paths']['output']
 
 # Generate noise for a signal
 def generate_noise(length, amp, conf):
@@ -14,16 +17,16 @@ def generate_noise(length, amp, conf):
 
 
 # Generate signal with arbitrary frequencies, amplitudes, and noise
-def generate_signal(f_A_map, fs, dur=None, n_samples=None,
+def generate_signal(f_A_map, dur=None, n_samples=None,
                     noise_amp=0, noise_conf=0.95):
     if not ((dur is None) ^ (n_samples is None)):
         raise ValueError("You must specify exactly one of 'dur' or 'n_samples'"
                          ", but not both.")
 
     if dur is not None:
-        t = np.linspace(0, dur, int(fs*dur))
+        t = np.linspace(0, dur, int(FS*dur))
     else:
-        t = np.linspace(0, n_samples/fs, n_samples)
+        t = np.linspace(0, n_samples/FS, n_samples)
 
     n = len(t)
     x = np.zeros(n)
@@ -36,50 +39,95 @@ def generate_signal(f_A_map, fs, dur=None, n_samples=None,
     return t, x
 
 # Compute real DFT of a signal
-def ft(x, fs):
-    freqs = rfftfreq(len(x), 1/fs)
+def ft(x):
+    freqs = rfftfreq(len(x), 1/FS)
     amps = 2*np.abs(rfft(x))/len(x)
 
     return freqs, amps
 
-# Compares signal with its processed version
-def compare_signal(t, x, fs):
-    f, A = ft(x, fs)
-
-    x_proc = condition_signal(x, SIGPROC_SETTINGS)
-    f_proc, A_proc = ft(x_proc, fs)
+# Compares two signals
+def compare_signal(t_1, x_1, t_2, x_2):
+    f_1, A_1 = ft(x_1)
+    f_2, A_2 = ft(x_2)
 
     fig, ax = plt.subplots(nrows=2, ncols=2)
     
-    ax[0][0].plot(t, x, color='lightgreen')
-    ax[0][0].set_title("Unprocessed Signal")
+    ax[0][0].plot(t_1, x_1, color='lightgreen')
+    ax[0][0].set_title("Signal 1")
     ax[0][0].set_xlabel('t (s)')
     ax[0][0].set_ylabel('Amplitude')
     ax[0][0]
 
-    ax[1][0].plot(t, x_proc, color='green')
-    ax[1][0].set_title("Processed Signal")
+    ax[1][0].plot(t_2, x_2, color='green')
+    ax[1][0].set_title("Signal 2")
     ax[1][0].set_xlabel('t (s)')
     ax[1][0].set_ylabel('Amplitude')
 
-    ax[0][1].plot(f, A, color='lightblue')
-    ax[0][1].set_title("Unprocessed Signal Frequency Spectrum")
+    ax[0][1].plot(f_1, A_1, color='lightblue')
+    ax[0][1].set_title("Signal 1 Frequency Spectrum")
     ax[0][1].set_xlabel('f (Hz)')
     ax[0][1].set_ylabel('Amplitude')
 
-    ax[1][1].plot(f_proc, A_proc, color='blue')
-    ax[1][1].set_title("Processed Signal Frequency Spectrum")
+    ax[1][1].plot(f_2, A_2, color='blue')
+    ax[1][1].set_title("Signal 2 Frequency Spectrum")
     ax[1][1].set_xlabel('f (Hz)')
     ax[1][1].set_ylabel('Amplitude')
 
     fig.tight_layout()
     fig.savefig(OUTPUT_PATH / 'signal_comparison.svg', bbox_inches='tight')
 
+# 1. Relative amplitudes preserved in same signal
+# 2. Amplitudes reduced by the same factor in different signals
+
+def generate_f_A_map(mean_num_freqs, mean_num_samples, max_amp=1):
+    num_freqs = np.random.geometric(1/mean_num_freqs)
+    num_samples = np.random.geometric(1/mean_num_samples)
+
+    f_A_map = {}
+    for i in range(num_freqs):
+        f = np.random.uniform(0, FS/2)
+        A = np.random.uniform(0, max_amp)
+        f_A_map[f] = A
+    return f_A_map, num_samples
+
+def val_CI(x, conf=0.95):
+    n = len(x)
+    avg = np.mean(x)
+    std = np.std(x, ddof=1)
+
+    alpha = 1 - conf
+    Z = norm.ppf(1 - alpha/2)
+
+    L = avg - Z*std/np.sqrt(n)
+    U = avg + Z*std/np.sqrt(n)
+
+    return avg, (L, U)
+
+def std_CI(x, conf=0.95):
+    n = len(x)
+    alpha = 1 - conf
+
+    chi2_L = chi2.ppf(alpha/2, df=n-1)
+    chi2_U = chi2.ppf(1 - alpha/2, df=n-1)
+
+    std = np.std(x, ddof=1)
+    L = std*np.sqrt((n - 1)/chi2_U)
+    U = std*np.sqrt((n - 1)/chi2_L)
+
+    return std, (L, U)
+
 if __name__ == '__main__':
-    f_A_map = {
-            5: 1,
-            12: 1
-    }
-    t, x = generate_signal(f_A_map, FS, n_samples=30,
-                           noise_amp=0.1)
-    compare_signal(t, x, FS)
+    f_A_map, num_samples = generate_f_A_map(7.5, 500)
+    t_1, x_1 = generate_signal(f_A_map, n_samples=num_samples, noise_amp=0.5)
+    x_1 = condition_signal(x_1)
+    f_1, A_1 = ft(x_1)
+
+    t_2 = t_1
+    t_2, x_2 = generate_signal(f_A_map, n_samples=4*num_samples, noise_amp=0.5)
+    x_2 = condition_signal(x_2)
+    f_2, A_2 = ft(x_2)
+
+    # percent_drop = 100*A_2/A_1
+    # _, (L, U) = std_CI(percent_drop)
+
+    compare_signal(t_1, x_1, t_2, x_2)

@@ -24,10 +24,10 @@ def power(signal, f_low, f_high, settings):
     b, a = butter(order, (f_low, f_high), btype='band')
     signal = lfilter(b, a, signal)
     logging.debug("Bandpass filter applied to signal")
-
+    
     # Calculate power
     _, power = welch(signal, fs)
-    power = np.sum(power) / (len(signal) / fs)
+    power = np.mean(power)
 
     logging.debug(f"Signal power is {power:.3g}")
     return power

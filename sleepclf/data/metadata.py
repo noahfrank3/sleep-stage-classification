@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-import logging
-import os
 
 import pandas as pd
 
-from sleepclf.config import EDF_DATA_PATH, DATA_PATH
+from config.config import CONFIG
 
-METADATA_PATH = os.path.join(DATA_PATH, 'metadata.csv')
+DATA_PATH = CONFIG['paths']['data']
+EDF_DATA_PATH = CONFIG['paths']['original_db']
+METADATA_PATH = DATA_PATH / 'metadata.csv'
 
 class Preprocessor(ABC):
     study_name = None
@@ -81,10 +81,7 @@ class CassettePreprocessor(Preprocessor):
     }
 
     def load_data(self):
-        self.data = pd.read_excel(os.path.join(
-            EDF_DATA_PATH,
-            'SC-subjects.xls'
-        ))
+        self.data = pd.read_excel(EDF_DATA_PATH / 'SC-subjects.xls')
 
     def reorganize_data(self):
         self.data['study'] = 'cassette'
@@ -106,10 +103,7 @@ class TelemetryPreprocessor(Preprocessor):
     }
 
     def load_data(self):
-        self.data = pd.read_excel(
-                os.path.join(EDF_DATA_PATH, 'ST-subjects.xls'),
-                skiprows=1
-        )
+        self.data = pd.read_excel(EDF_DATA_PATH / 'ST-subjects.xls', skiprows=1)
 
     def reorganize_data(self):
         # Remove other dataset's features
