@@ -45,7 +45,8 @@ def get_all_data(study):
         'params_clf': 'clf',
         'params_dim_reduction': 'dim_reduction',
         'values_0': 'cv_error',
-        'values_1': 'memory'
+        'values_1': 'memory',
+        'params_n_components_LDA': 'parameter'
     })
     
     data_1 = data[data['memory'] < 2000]
@@ -58,7 +59,7 @@ def get_all_data(study):
 
     data = pd.concat([data_1, data_2], ignore_index=True)
 
-    return data[['clf', 'dim_reduction', 'cv_error', 'memory']]
+    return data[['clf', 'dim_reduction', 'cv_error', 'memory', 'parameter']]
 
 def get_pareto_data(study):
     data = []
@@ -78,7 +79,14 @@ def get_data_by_clf(data):
         data[clf] = old_data[old_data['clf'] == clf]
     return data
 
-def plot_data(data, title):
+def get_data_by_dim_reduction(data):
+    old_data = data
+    data = {}
+    for dim_reduction in dim_reduction_mappings.keys():
+        data[dim_reduction] = old_data[old_data['dim_reduction'] == dim_reduction]
+    return data
+
+def plot_data_clf(data, title):
     data = get_data_by_clf(data)
 
     fig, ax = plt.subplots()
@@ -91,18 +99,50 @@ def plot_data(data, title):
     ax.grid(True)
     fig.savefig(f'{title.lower().replace(' ', '_')}.svg')
 
+def plot_data_dim_reduction(data, title):
+    data = get_data_by_dim_reduction(data)
+
+    fig, ax = plt.subplots()
+    for dim_reduction, subdata in data.items():
+        ax.scatter(subdata['cv_error'], subdata['memory'], color=dim_reduction_mappings[dim_reduction], label=dim_reduction, s=15)
+    ax.set_title(title, fontsize='large')
+    ax.set_xlabel("CV Error", fontsize='large')
+    ax.set_ylabel("Memory (MB)", fontsize='large')
+    ax.legend(loc='upper right', fontsize='large')
+    ax.grid(True, zorder=0)
+    fig.savefig(f'{title.lower().replace(' ', '_')}.svg')
+
 if __name__ == '__main__':
     study = get_study()
 
     all_data = get_all_data(study)
-    plot_data(all_data, 'All Data')
+    plot_data_clf(all_data, "Optimization Results")
+    plot_data_dim_reduction(all_data, "Dimensionality Reduction Results")
 
-    pareto_data = get_pareto_data(study)
-    plot_data(pareto_data, 'Pareto Frontier')
+    '''
+    xgb_data = get_data_by_clf(all_data)['XGB']
+    plot_data_dim_reduction(xgb_data, "XGBoost Results")
 
-    print(f"Number of completed trials: {len(all_data)}")
+    all_data = get_data_by_clf(all_data)
+    xgb_data = all_data['XGB']
+
+    xgb_data = get_data_by_dim_reduction(xgb_data)['LDA']
+
+    fig, ax = plt.subplots()
+    ax.scatter(xgb_data['parameter'], xgb_data['cv_error'], color='hotpink')
+    ax.set_title("CV Error vs. Max Depth, XGBoost", fontsize='large')
+    ax.set_xlabel("Parameter", fontsize='large')
+    ax.set_ylabel("CV Error", fontsize='large')
+    ax.grid(True)
+    fig.savefig(f'xgb_parameter.svg')
+    '''
+
+    # pareto_data = get_pareto_data(study)
+    # plot_data(pareto_data, 'Pareto Frontier')
+
+    # print(f"Number of completed trials: {len(all_data)}")
 
     # fig = plot_parallel_coordinate(study, target=lambda t: t.values[0], target_name='CV Error', params=['clf', 'dim_reduction'])
     # fig = plot_param_importances(study)
-    fig = plot_hypervolume_history(study, (1, 1024*4))
-    show(fig)
+    # fig = plot_hypervolume_history(study, (1, 1024*4))
+    # show(fig)

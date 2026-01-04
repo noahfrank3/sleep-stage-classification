@@ -158,7 +158,7 @@ def objective_func(trial, objective_params):
     # Encode features
     encoder = ColumnTransformer(
         transformers=[
-            ('scale', StandardScaler(), ['age']), 
+            ('scale', StandardScaler(), ['age']),
             ('onehot', OneHotEncoder(), ['study', 'sex']),
             ('time', CircularEncoder(), ['lights_off'])
         ]

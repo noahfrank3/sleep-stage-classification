@@ -4,11 +4,11 @@ import numpy as np
 from scipy.signal import butter, lfilter, welch
 
 # Calculate power of a signal over a certain frequency range
-def power(signal, f_low, f_high, settings):
+def power(signal, f_low, f_high):
     # Unpack settings
-    fs = settings.fs
-    order = settings.order
-    jitter = settings.jitter
+    fs = 100
+    order = 5
+    jitter = 0.001
 
     # Calculate Nyquist frequency
     f_n = fs / 2
@@ -26,11 +26,15 @@ def power(signal, f_low, f_high, settings):
     logging.debug("Bandpass filter applied to signal")
     
     # Calculate power
+    '''
     _, power = welch(signal, fs)
     power = np.mean(power)
 
     logging.debug(f"Signal power is {power:.3g}")
     return power
+    '''
+
+    return np.sqrt(np.mean(signal**2))
 
 # Define signal ranges to filter over
 def ranges(n_divs_map, f_sleep_map):

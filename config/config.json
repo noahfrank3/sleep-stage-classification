@@ -1,0 +1,48 @@
+{
+    "HPC":
+    {
+        "preprocessing":
+        {
+            "enabled": false,
+            "jobs": 23
+        }
+    },
+    "sigproc":
+    {
+        "sample frequency": 100,
+        "jitter": 0.001,
+        "filter order": 5
+    },
+    "sleep waves":
+    [
+        {
+            "name": "theta",
+            "min freqency": 4,
+            "max frequency": 7.5
+        },
+        {
+            "name": "alpha",
+            "min freqency": 8,
+            "max frequency": 13
+        },
+        {
+            "name": "beta",
+            "min freqency": 14,
+            "max frequency": 30
+        },
+        {
+            "name": "gamma",
+            "min freqency": 30,
+            "max frequency": 50
+        }
+    ],
+    "original database paths":
+    [
+        "data/physionet.org/files/sleep-edfx/1.0.0",
+        "data/sleep-edf-database-expanded-1.0.0"
+    ],
+    "logging":
+    {
+        "default level": "INFO"
+    }
+}
